@@ -1,4 +1,4 @@
-from fsm.models import SagaInput, SagaState
+from fsm.models import SagaInput, SagaData
 
 
 class TextInput(SagaInput):
@@ -7,10 +7,9 @@ class TextInput(SagaInput):
     raw_text: str
 
 
-class TextState(SagaState):
-    """Состояние для text pipeline"""
+class TextData(SagaData):
+    """Данные для text pipeline"""
 
-    state_name: str = "text_state"
     text: str | None = None
     tokens: list[str] = []
     result: str | None = None

@@ -7,7 +7,7 @@ class SagaInput(BaseModel):
     pass
 
 
-class SagaState(BaseModel):
-    """Базовый класс для состояния saga"""
+class SagaData(BaseModel):
+    """Базовый класс для данных контекста"""
 
-    state_name: str = "state"
+    pass

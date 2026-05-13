@@ -1,18 +1,18 @@
 from typing import Generic, TypeVar, Optional, Callable, Awaitable
 
-from fsm.core import RunContext, SagaDefinition, TIn, TState
+from fsm.core import RunContext, SagaDefinition, TIn, TData
 
 StepCallback = Callable[[int, RunContext], Awaitable[None]]
 
 
-class Saga(Generic[TIn, TState]):
+class Saga(Generic[TIn, TData]):
     """Stateless executor саги - выполняет pipeline шаги"""
 
     def __init__(
         self,
-        definition: SagaDefinition[TIn, TState],
-        pre_step_callback: Optional[Callable[[int, RunContext[TIn, TState]], Awaitable[None]]] = None,
-        post_step_callback: Optional[Callable[[int, RunContext[TIn, TState]], Awaitable[None]]] = None,
+        definition: SagaDefinition[TIn, TData],
+        pre_step_callback: Optional[Callable[[int, RunContext[TIn, TData]], Awaitable[None]]] = None,
+        post_step_callback: Optional[Callable[[int, RunContext[TIn, TData]], Awaitable[None]]] = None,
     ) -> None:
         self._def = definition
         self._pre_step_callback = pre_step_callback
@@ -20,7 +20,7 @@ class Saga(Generic[TIn, TState]):
 
     async def run(
         self,
-        ctx: RunContext[TIn, TState],
+        ctx: RunContext[TIn, TData],
     ) -> None:
         """Выполнить шаги саги начиная с текущей позиции cursor"""
 

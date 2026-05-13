@@ -1,32 +1,32 @@
 import logging
 from typing import Generic
 
-from fsm.core import RunContext, SagaDefinition, SagaProgressStore, TIn, TState
+from fsm.core import RunContext, SagaDefinition, SagaProgressStore, TIn, TData
 from fsm.saga import Saga
 
 logger = logging.getLogger(__name__)
 
 
-class SagaRunner(Generic[TIn, TState]):
+class SagaRunner(Generic[TIn, TData]):
     """Orchestrator для запуска саги: загрузка, выполнение, сохранение"""
 
     def __init__(
         self,
-        saga_def: SagaDefinition[TIn, TState],
+        saga_def: SagaDefinition[TIn, TData],
         store: SagaProgressStore,
-        state_type: type[TState],
+        data_type: type[TData],
     ) -> None:
         self._def = saga_def
         self._store = store
-        self._state_type = state_type
+        self._data_type = data_type
 
     async def run(
         self,
         *,
         run_id: str,
         input: TIn,
-        initial_state: TState,
-    ) -> RunContext[TIn, TState]:
+        initial_state: TData,
+    ) -> RunContext[TIn, TData]:
         """Запустить Saga: загрузить/создать, выполнить, сохранить"""
 
         logger.info(f"Starting saga '{self._def.name}' (run_id={run_id})")
@@ -34,30 +34,30 @@ class SagaRunner(Generic[TIn, TState]):
         # Загрузить или создать pipeline
         ctx = await self._load_or_create_context(run_id, input, initial_state)
 
-        # Callbacks для сохранения состояния
-        async def pre_step(step_idx: int, context: RunContext[TIn, TState]) -> None:
-            state_name = getattr(context.state, "state_name", "unknown")
+        # Callbacks для сохранения данных
+        async def pre_step(step_idx: int, run_ctx: RunContext[TIn, TData]) -> None:
+            data_type_name = type(run_ctx.data).__name__
             logger.info(
-                f"Executing step {step_idx}: '{self._def.steps[step_idx].id}' on '{state_name}'"
+                f"Executing step {step_idx}: '{self._def.steps[step_idx].id}' on '{data_type_name}'"
             )
-            logger.debug(f"Step input: {context.input}")
-            logger.debug(f"Step state before: {context.state}")
+            logger.debug(f"Step input: {run_ctx.input}")
+            logger.debug(f"Step data before: {run_ctx.data}")
 
-        async def post_step(step_idx: int, context: RunContext[TIn, TState]) -> None:
-            logger.debug(f"Step state after: {context.state}")
+        async def post_step(step_idx: int, run_ctx: RunContext[TIn, TData]) -> None:
+            logger.debug(f"Step data after: {run_ctx.data}")
 
-            # Сохранить состояние после шага
-            state_name = getattr(context.state, "state_name", "unknown")
+            # Сохранить данные после шага
+            data_type_name = type(run_ctx.data).__name__
             await self._store.save(
                 {
-                    "run_id": context.run_id,
-                    "saga_name": context.saga_name,
-                    "cursor": context.cursor,
-                    "state": context.state.model_dump(),
+                    "run_id": run_ctx.run_id,
+                    "saga_name": run_ctx.saga_name,
+                    "cursor": run_ctx.cursor,
+                    "data": run_ctx.data.model_dump(),
                 }
             )
             logger.info(
-                f"Checkpoint saved: cursor={context.cursor}, state='{state_name}'"
+                f"Checkpoint saved: cursor={run_ctx.cursor}, data='{data_type_name}'"
             )
 
         # Выполнить сагу
@@ -68,21 +68,21 @@ class SagaRunner(Generic[TIn, TState]):
         return ctx
 
     async def _load_or_create_context(
-        self, run_id: str, input: TIn, initial_state: TState
-    ) -> RunContext[TIn, TState]:
+        self, run_id: str, input: TIn, initial_state: TData
+    ) -> RunContext[TIn, TData]:
         """Загрузить сохраненный контекст или создать новый"""
 
         saved = await self._store.load(run_id)
         if saved and saved.get("saga_name") == self._def.name:
             logger.info(f"Resuming saga from cursor={saved['cursor']}")
-            logger.debug(f"Loaded state: {saved['state']}")
-            state = self._state_type.model_validate(saved["state"])
-            return RunContext[TIn, TState](
+            logger.debug(f"Loaded data: {saved['data']}")
+            data = self._data_type.model_validate(saved["data"])
+            return RunContext[TIn, TData](
                 run_id=run_id,
                 saga_name=self._def.name,
                 cursor=saved["cursor"],
                 input=input,
-                state=state,
+                data=data,
             )
         else:
             logger.info("No saved progress found, starting from beginning")
@@ -91,5 +91,5 @@ class SagaRunner(Generic[TIn, TState]):
                 saga_name=self._def.name,
                 cursor=0,
                 input=input,
-                state=initial_state,
+                data=initial_state,
             )

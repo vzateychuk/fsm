@@ -1,4 +1,4 @@
-from fsm.models import SagaInput, SagaState
+from fsm.models import SagaInput, SagaData
 
 
 class NumberInput(SagaInput):
@@ -7,10 +7,9 @@ class NumberInput(SagaInput):
     raw_numbers: str
 
 
-class NumberState(SagaState):
-    """Состояние для number pipeline"""
+class NumberData(SagaData):
+    """Данные для number pipeline"""
 
-    state_name: str = "number_state"
     numbers: list[int] = []
     sum_value: int | None = None
     result: str | None = None

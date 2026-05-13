@@ -5,9 +5,9 @@ from fsm.core import (
     SagaDefinition,
     SagaProgressStore,
     TIn,
-    TState,
+    TData,
 )
-from fsm.models import SagaInput, SagaState
+from fsm.models import SagaInput, SagaData
 from fsm.saga import Saga
 from fsm.saga_runner import SagaRunner
 
@@ -18,9 +18,9 @@ __all__ = [
     "SagaDefinition",
     "SagaProgressStore",
     "TIn",
-    "TState",
+    "TData",
     "SagaInput",
-    "SagaState",
+    "SagaData",
     "Saga",
     "SagaRunner",
 ]

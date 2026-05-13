@@ -1,9 +1,9 @@
-from pipelines.text_pipeline.models import TextInput, TextState
+from pipelines.text_pipeline.models import TextInput, TextData
 from pipelines.text_pipeline.steps import Preprocessing, Processing
 
 __all__ = [
     "TextInput",
-    "TextState",
+    "TextData",
     "Preprocessing",
     "Processing",
 ]

@@ -11,16 +11,16 @@ src/
     
   fsm/                         # FSM фреймворк (переиспользуемое ядро)
     core.py                    # RunContext, SagaStep, StepAction, SagaDefinition, SagaProgressStore
-    models.py                  # SagaInput, SagaState (базовые классы)
+    models.py                  # SagaInput, SagaData (базовые классы)
     saga.py                    # Saga - stateless executor с callbacks
     saga_runner.py             # SagaRunner - orchestrator (load/save/resume)
     
   pipelines/                   # Конкретные реализации pipeline-ов
     text_pipeline/             # Пример: pipeline обработки текста (2 шага)
-      models.py               # TextInput, TextState (наследуют SagaInput/SagaState)
+      models.py               # TextInput, TextData (наследуют SagaInput/SagaData)
       steps.py                # Preprocessing, Processing (наследуют StepAction)
     number_pipeline/           # Пример: pipeline обработки чисел (3 шага)
-      models.py               # NumberInput, NumberState
+      models.py               # NumberInput, NumberData
       steps.py                # ParseNumbers, CalculateSum, FormatResult
       
   store/                       # Реализации хранилища прогресса
@@ -55,14 +55,14 @@ src/
   - Имплементирует `SagaStep` протокол
   - Служит parent-класс для всех шагов в pipeline-ах
   - Конкретные подклассы определяют `id: str = "step_name"` с конкретным значением
-  - **Дизайн:** `id` определяется только в подклассах, избегая дублирования (каждый шаг имеет свой уникальный id)
+  - **Дизайн:** `id` определяется только в подклассах — каждый шаг имеет свой уникальный id
 
 - **`SagaInput`** — базовый класс для входных данных
   - Все pipeline-специфичные Input классы наследуют от неё
 
-- **`SagaState`** — базовый класс для состояния
-  - `state_name: str` — идентификатор состояния (для логирования)
-  - Все pipeline-специфичные State классы наследуют от неё
+- **`SagaData`** — базовый класс для данных контекста
+  - Содержит только бизнес-данные (промежуточные результаты)
+  - Все pipeline-специфичные Data классы наследуют от неё
 
 - **`SagaDefinition[TIn, TState]`** — определение саги
   - `name: str` — имя саги
@@ -94,7 +94,7 @@ src/
 ### Pipeline-specific Code (`pipelines/`)
 
 Каждый pipeline — это отдельный пакет с:
-- **`models.py`** — входные данные и состояние (наследуют SagaInput/SagaState)
+- **`models.py`** — входные данные и контекст данных (наследуют SagaInput/SagaData)
 - **`steps.py`** — конкретные реализации шагов (наследуют StepAction)
 - **`__init__.py`** — экспорт публичного API
 
@@ -123,15 +123,14 @@ python src/main/number_pipeline_main.py
 
 2. **Определить модели данных** (`models.py`):
    ```python
-   from fsm.models import SagaInput, SagaState
+   from fsm.models import SagaInput, SagaData
 
    class MyInput(SagaInput):
        """Входные данные"""
        raw_data: str
 
-   class MyState(SagaState):
-       """Состояние pipeline"""
-       state_name: str = "my_state"
+   class MyData(SagaData):
+       """Данные pipeline"""
        processed: str | None = None
        result: str | None = None
    ```
@@ -142,10 +141,10 @@ python src/main/number_pipeline_main.py
    from fsm.core import RunContext, StepAction
 
    @dataclass(slots=True)
-   class MyStep(StepAction[MyInput, MyState]):
+   class MyStep(StepAction[MyInput, MyData]):
        id: str = "my_step"
        
-       async def run(self, ctx: RunContext[MyInput, MyState]) -> None:
+       async def run(self, ctx: RunContext[MyInput, MyData]) -> None:
            ctx.state.processed = ctx.input.raw_data.upper()
    ```
 
@@ -156,27 +155,27 @@ python src/main/number_pipeline_main.py
    from commons import setup_logging
    from fsm.core import SagaDefinition
    from fsm.saga_runner import SagaRunner
-   from pipelines.my_pipeline.models import MyInput, MyState
+   from pipelines.my_pipeline.models import MyInput, MyData
    from pipelines.my_pipeline.steps import MyStep
    from store.inmem.inmemory_store import InMemoryStore
 
    async def main() -> None:
        setup_logging(log_file="logs/my_pipeline.log")
        logger = logging.getLogger(__name__)
-       
-       definition = SagaDefinition[MyInput, MyState](
+
+       definition = SagaDefinition[MyInput, MyData](
            name="my_pipeline",
            steps=[MyStep()],
        )
-       
+
        store = InMemoryStore()
-       runner = SagaRunner(definition, store, MyState)
-       
+       runner = SagaRunner(definition, store, MyData)
+
        logger.info("Starting pipeline execution")
        await runner.run(
            run_id="my-run-001",
            input=MyInput(raw_data="hello"),
-           initial_state=MyState(),
+           initial_state=MyData(),
        )
        logger.info("Pipeline execution completed")
 
@@ -241,7 +240,7 @@ async def post_step(step_idx, ctx):
 | `Saga` | Stateless executor - только выполнение шагов |
 | `SagaRunner` | Orchestrator - load/save/resume pipeline |
 | `StepAction` | Конкретная реализация шага |
-| `SagaInput/SagaState` | Базовые классы для данных |
+| `SagaInput/SagaData` | Базовые классы для входных данных и контекста |
 
 ## Особенности
 
