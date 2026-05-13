@@ -1,7 +1,43 @@
 [project]
 name = "fsm"
 version = "0.1.0"
-description = "Add your description here"
+description = "Async typed Saga (pipeline runner) with resume checkpoints in SQLite"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+
+dependencies = [
+  "pydantic>=2.7,<3",
+  "aiosqlite>=0.20.0,<0.22",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<9",
+  "pytest-asyncio>=0.24,<0.26",
+  "ruff>=0.6,<1.0",
+  "mypy>=1.10,<2",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+strict = true
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
