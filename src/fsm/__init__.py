@@ -9,7 +9,7 @@ from fsm.core import (
 )
 from fsm.models import SagaInput, SagaState
 from fsm.saga import Saga
-from fsm.saga_factory import SagaFactory
+from fsm.saga_runner import SagaRunner
 
 __all__ = [
     "RunContext",
@@ -22,5 +22,5 @@ __all__ = [
     "SagaInput",
     "SagaState",
     "Saga",
-    "SagaFactory",
+    "SagaRunner",
 ]

@@ -7,17 +7,18 @@
 ```
 src/
   commons/                      # Общие утилиты (не относящиеся к FSM)
-    logging_config.py          # Настройка логирования
+    logging_config.py          # Настройка логирования с номерами строк
     
   fsm/                         # FSM фреймворк (переиспользуемое ядро)
-    core.py                    # RunContext, SagaStep, SagaDefinition, SagaProgressStore
-    saga.py                    # Saga executor с логированием и чекпоинтированием
-    saga_factory.py            # SagaFactory для создания саг
+    core.py                    # RunContext, SagaStep, StepAction, SagaDefinition, SagaProgressStore
+    models.py                  # SagaInput, SagaState (базовые классы)
+    saga.py                    # Saga - stateless executor с callbacks
+    saga_runner.py             # SagaRunner - orchestrator (load/save/resume)
     
   pipelines/                   # Конкретные реализации pipeline-ов
     text_pipeline/             # Пример: pipeline обработки текста (2 шага)
-      models.py               # SagaInput, SagaState
-      steps.py                # Preprocessing, Processing
+      models.py               # TextInput, TextState (наследуют SagaInput/SagaState)
+      steps.py                # Preprocessing, Processing (наследуют StepAction)
     number_pipeline/           # Пример: pipeline обработки чисел (3 шага)
       models.py               # NumberInput, NumberState
       steps.py                # ParseNumbers, CalculateSum, FormatResult
@@ -29,7 +30,6 @@ src/
       sql_store.py            # SQL хранилище (stub)
       
   main/
-    main.py                    # Документация доступных pipeline-ов
     text_pipeline_main.py      # Запуск text pipeline
     number_pipeline_main.py    # Запуск number pipeline
 ```
@@ -40,7 +40,7 @@ src/
 
 **Основные классы и протоколы:**
 
-- **`RunContext[TIn, TState]`** — контекст выполнения саги, содержит:
+- **`RunContext[TIn, TState]`** — контекст выполнения саги
   - `run_id` — идентификатор запуска
   - `input` — входные данные
   - `state` — текущее состояние
@@ -50,6 +50,17 @@ src/
   - `id: str` — идентификатор шага
   - `async def run(ctx: RunContext) -> None` — выполнить шаг
 
+- **`StepAction[TIn, TState]`** — базовый класс для step action-ов
+  - Имплементирует `SagaStep` протокол
+  - Базовый класс для всех конкретных шагов в pipeline-ах
+
+- **`SagaInput`** — базовый класс для входных данных
+  - Все pipeline-специфичные Input классы наследуют от неё
+
+- **`SagaState`** — базовый класс для состояния
+  - `state_name: str` — идентификатор состояния (для логирования)
+  - Все pipeline-специфичные State классы наследуют от неё
+
 - **`SagaDefinition[TIn, TState]`** — определение саги
   - `name: str` — имя саги
   - `steps: list[SagaStep]` — список шагов
@@ -58,23 +69,30 @@ src/
   - `async def load(run_id: str) -> dict` — загрузить сохраненный прогресс
   - `async def save(data: dict) -> None` — сохранить прогресс
 
-- **`Saga[TIn, TState]`** — исполнитель саги
-  - Поддержка возобновления из чекпоинтов
-  - Логирование выполнения на уровне INFO
-  - DEBUG логи состояния между шагами
+- **`Saga[TIn, TState]`** — stateless executor саги
+  - Выполняет шаги саги
+  - Вызывает callbacks перед/после шагов
+  - НЕ отвечает за загрузку/сохранение
+
+- **`SagaRunner[TIn, TState]`** — orchestrator саги
+  - Загружает/создает pipeline из хранилища
+  - Вызывает Saga для выполнения
+  - Обрабатывает сохранение состояния
+  - Решает запустить новый или возобновить существующий pipeline
 
 ### Common Utilities (`commons/`)
 
-- **`setup_logging(level, log_file)`** — настройка логирования
+- **`setup_logging(level, log_file, log_format)`** — настройка логирования
   - Логирование в консоль (stdout)
   - Опциональное логирование в файл
+  - Формат по умолчанию включает номер строки: `name:lineno - level - message`
   - Автоматическое создание директории логов
 
 ### Pipeline-specific Code (`pipelines/`)
 
 Каждый pipeline — это отдельный пакет с:
-- **`models.py`** — входные данные и состояние (SagaInput, SagaState)
-- **`steps.py`** — конкретные реализации шагов (наследуют SagaStep)
+- **`models.py`** — входные данные и состояние (наследуют SagaInput/SagaState)
+- **`steps.py`** — конкретные реализации шагов (наследуют StepAction)
 - **`__init__.py`** — экспорт публичного API
 
 **Текущие примеры:**
@@ -102,14 +120,15 @@ python src/main/number_pipeline_main.py
 
 2. **Определить модели данных** (`models.py`):
    ```python
-   from pydantic import BaseModel
+   from fsm.models import SagaInput, SagaState
 
-   class MyInput(BaseModel):
+   class MyInput(SagaInput):
        """Входные данные"""
        raw_data: str
 
-   class MyState(BaseModel):
+   class MyState(SagaState):
        """Состояние pipeline"""
+       state_name: str = "my_state"
        processed: str | None = None
        result: str | None = None
    ```
@@ -117,10 +136,10 @@ python src/main/number_pipeline_main.py
 3. **Реализовать шаги** (`steps.py`):
    ```python
    from dataclasses import dataclass
-   from fsm.core import RunContext, SagaStep
+   from fsm.core import RunContext, StepAction
 
    @dataclass(slots=True)
-   class MyStep(SagaStep[MyInput, MyState]):
+   class MyStep(StepAction[MyInput, MyState]):
        id: str = "my_step"
        
        async def run(self, ctx: RunContext[MyInput, MyState]) -> None:
@@ -130,15 +149,17 @@ python src/main/number_pipeline_main.py
 4. **Создать точку входа** (`my_pipeline_main.py`):
    ```python
    import asyncio
+   import logging
    from commons import setup_logging
    from fsm.core import SagaDefinition
-   from fsm.saga import Saga
+   from fsm.saga_runner import SagaRunner
    from pipelines.my_pipeline.models import MyInput, MyState
    from pipelines.my_pipeline.steps import MyStep
    from store.inmem.inmemory_store import InMemoryStore
 
    async def main() -> None:
        setup_logging(log_file="logs/my_pipeline.log")
+       logger = logging.getLogger(__name__)
        
        definition = SagaDefinition[MyInput, MyState](
            name="my_pipeline",
@@ -146,15 +167,15 @@ python src/main/number_pipeline_main.py
        )
        
        store = InMemoryStore()
-       saga = Saga(definition, store, MyState)
+       runner = SagaRunner(definition, store, MyState)
        
-       ctx = await saga.run(
+       logger.info("Starting pipeline execution")
+       await runner.run(
            run_id="my-run-001",
            input=MyInput(raw_data="hello"),
            initial_state=MyState(),
        )
-       
-       print(f"Result: {ctx.state.processed}")
+       logger.info("Pipeline execution completed")
 
    if __name__ == "__main__":
        asyncio.run(main())
@@ -171,44 +192,65 @@ from commons import setup_logging
 setup_logging(level=logging.INFO, log_file="logs/my_pipeline.log")
 ```
 
+**Формат логов:** `module:line_number - logger_name - level - message`
+
+Пример:
+```
+2026-05-14 01:53:48,693 - fsm.saga_runner:32 - INFO - Starting saga 'text_pipeline'
+2026-05-14 01:53:48,693 - fsm.saga_runner:40 - INFO - Executing step 0: 'preprocessing'
+```
+
 **Уровни логирования:**
 - **INFO** — начало саги, выполнение шагов, сохранение чекпоинтов
 - **DEBUG** — входные данные, состояние до/после шага
 
-## Хранилище прогресса
+## Архитектура выполнения
 
-Реализуется через протокол `SagaProgressStore`.
+**Pipeline execution flow:**
 
-**Доступные реализации:**
-- **`InMemoryStore`** — в памяти (для тестирования)
-- **`SQLStore`** — SQL БД (stub, требует реализации)
+1. `SagaRunner.run()` — orchestrator
+   - Загружает сохраненный прогресс или создает новый контекст
+   - Создает callbacks для pre/post шагов (сохранение состояния, логирование)
+   - Вызывает `Saga.run()` с контекстом
 
-**Использование:**
+2. `Saga.run()` — stateless executor
+   - Выполняет шаги начиная с текущего cursor
+   - Для каждого шага вызывает pre_step callback → выполняет шаг → вызывает post_step callback
+   - НЕ отвечает за загрузку/сохранение
+
+3. `StepAction.run()` — конкретный шаг
+   - Изменяет состояние на основе входных данных
+   - Обновляет `ctx.state`
+
+**Callbacks (custom logic):**
 ```python
-from store.inmem.inmemory_store import InMemoryStore
-
-store = InMemoryStore()
-saga = Saga(definition, store, StateType)
+async def pre_step(step_idx, ctx):
+    # Логирование, валидация, etc.
+    
+async def post_step(step_idx, ctx):
+    # Сохранение, уведомления, метрики, etc.
 ```
 
 ## Разделение ответственности
 
-| Пакет | Ответственность |
+| Класс | Ответственность |
 |-------|-----------------|
-| `fsm/` | Абстрактное ядро FSM (переиспользуемое) |
-| `commons/` | Общие утилиты (логирование, конфиги) |
-| `pipelines/` | Конкретные реализации (данные + шаги) |
-| `store/` | Хранилище прогресса |
-| `main/` | Точки входа для каждого pipeline |
+| `Saga` | Stateless executor - только выполнение шагов |
+| `SagaRunner` | Orchestrator - load/save/resume pipeline |
+| `StepAction` | Конкретная реализация шага |
+| `SagaInput/SagaState` | Базовые классы для данных |
 
 ## Особенности
 
 - ✓ **Protocol-based Design** — использование Python Protocols вместо абстрактных классов
 - ✓ **Type-safe** — полная типизация через TypeVar и Generic
+- ✓ **Stateless Executor** — Saga не зависит от хранилища
+- ✓ **Callbacks** — расширяемость через pre/post step callbacks
 - ✓ **Checkpointing** — автоматическое сохранение прогресса после каждого шага
-- ✓ **Resume support** — возобновление саги из сохраненного состояния
-- ✓ **Logging** — встроенное логирование выполнения
-- ✓ **Async/await** — поддержка асинхронных операций
+- ✓ **Resume support** — возобновление саги из сохраненного состояния по run_id
+- ✓ **State tracking** — каждое состояние имеет идентификатор (state_name)
+- ✓ **Logging** — встроенное логирование с номерами строк
+- ✓ **Async/await** — полная поддержка асинхронных операций
 - ✓ **Modular** — pipeline-ы полностью отделены от фреймворка
 
 ## Требования

@@ -18,7 +18,7 @@ def setup_logging(
         log_format: Формат логов (опционально, используется default)
     """
     if log_format is None:
-        log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        log_format = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
 
     # Консоль
     console_handler = logging.StreamHandler(sys.stdout)
