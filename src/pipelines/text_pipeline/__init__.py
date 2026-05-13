@@ -1,9 +1,9 @@
-from pipelines.text_pipeline.models import SagaInput, SagaState
+from pipelines.text_pipeline.models import TextInput, TextState
 from pipelines.text_pipeline.steps import Preprocessing, Processing
 
 __all__ = [
-    "SagaInput",
-    "SagaState",
+    "TextInput",
+    "TextState",
     "Preprocessing",
     "Processing",
 ]

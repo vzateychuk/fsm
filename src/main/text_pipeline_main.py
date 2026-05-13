@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from commons import setup_logging
 from fsm.core import SagaDefinition
 from fsm.saga import Saga
-from pipelines.text_pipeline.models import SagaInput, SagaState
+from pipelines.text_pipeline.models import TextInput, TextState
 from pipelines.text_pipeline.steps import Preprocessing, Processing
 from store.inmem.inmemory_store import InMemoryStore
 
@@ -22,19 +22,18 @@ async def main() -> None:
     print("TEXT PIPELINE: Tokenization and Counting")
     print("=" * 60)
 
-    definition = SagaDefinition[SagaInput, SagaState](
+    definition = SagaDefinition[TextInput, TextState](
         name="text_pipeline",
         steps=[Preprocessing(), Processing()],
     )
 
     store = InMemoryStore()
-    saga = Saga(definition, store, SagaState)
+    saga = Saga(definition, store, TextState)
 
     ctx = await saga.run(
         run_id="text-run-001",
-        input=SagaInput(raw_text="  hello beautiful world  "),
-        initial_state=SagaState(),
-        resume=True,
+        input=TextInput(raw_text="  hello beautiful world  "),
+        initial_state=TextState(),
     )
 
     print("\n" + "=" * 60)

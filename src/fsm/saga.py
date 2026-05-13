@@ -17,11 +17,11 @@ class Saga(Generic[TIn, TState]):
 
     def __init__(
         self,
-        definition: SagaDefinition[TIn, TState],
+        saga_def: SagaDefinition[TIn, TState],
         store: SagaProgressStore,
         state_type: type[TState],
     ) -> None:
-        self._def = definition
+        self._def = saga_def
         self._store = store
         self._state_type = state_type
 
@@ -31,35 +31,24 @@ class Saga(Generic[TIn, TState]):
         run_id: str,
         input: TIn,
         initial_state: TState,
-        resume: bool = True,
     ) -> RunContext[TIn, TState]:
         logger.info(f"Starting saga '{self._def.name}' (run_id={run_id})")
 
-        # 1) резюм
-        if resume:
-            saved = await self._store.load(run_id)
-            if saved and saved.get("saga_name") == self._def.name:
-                logger.info(f"Resuming saga from cursor={saved['cursor']}")
-                logger.debug(f"Loaded state: {saved['state']}")
-                state = self._state_type.model_validate(saved["state"])
-                ctx = RunContext[TIn, TState](
-                    run_id=run_id,
-                    saga_name=self._def.name,
-                    cursor=saved["cursor"],
-                    input=input,
-                    state=state,
-                )
-            else:
-                logger.info("No saved progress, starting from beginning")
-                ctx = RunContext(
-                    run_id=run_id,
-                    saga_name=self._def.name,
-                    cursor=0,
-                    input=input,
-                    state=initial_state,
-                )
+        # Попытка загрузить сохраненный прогресс
+        saved = await self._store.load(run_id)
+        if saved and saved.get("saga_name") == self._def.name:
+            logger.info(f"Resuming saga from cursor={saved['cursor']}")
+            logger.debug(f"Loaded state: {saved['state']}")
+            state = self._state_type.model_validate(saved["state"])
+            ctx = RunContext[TIn, TState](
+                run_id=run_id,
+                saga_name=self._def.name,
+                cursor=saved["cursor"],
+                input=input,
+                state=state,
+            )
         else:
-            logger.info("Resume disabled, starting from beginning")
+            logger.info("No saved progress found, starting from beginning")
             ctx = RunContext(
                 run_id=run_id,
                 saga_name=self._def.name,
@@ -68,10 +57,11 @@ class Saga(Generic[TIn, TState]):
                 state=initial_state,
             )
 
-        # 2) исполнение
+        # Исполнение шагов
         for i in range(ctx.cursor, len(self._def.steps)):
             step = self._def.steps[i]
-            logger.info(f"Executing step {i}: '{step.id}'")
+            state_name = getattr(ctx.state, "state_name", "unknown")
+            logger.info(f"Executing step {i}: '{step.id}' on '{state_name}'")
             logger.debug(f"Step input: {ctx.input}")
             logger.debug(f"Step state before: {ctx.state}")
 
@@ -79,17 +69,18 @@ class Saga(Generic[TIn, TState]):
 
             logger.debug(f"Step state after: {ctx.state}")
 
-            # 3) чекпоинт после шага
+            # Чекпоинт после шага
             ctx.cursor = i + 1
+            state_name = getattr(ctx.state, "state_name", "unknown")
             await self._store.save(
                 {
                     "run_id": ctx.run_id,
                     "saga_name": ctx.saga_name,
                     "cursor": ctx.cursor,
-                    "state": ctx.state.model_dump(),  # JSON-ready dict
+                    "state": ctx.state.model_dump(),
                 }
             )
-            logger.info(f"Checkpoint saved: cursor={ctx.cursor}")
+            logger.info(f"Checkpoint saved: cursor={ctx.cursor}, state='{state_name}'")
 
         logger.info(f"Saga '{self._def.name}' completed successfully")
         return ctx

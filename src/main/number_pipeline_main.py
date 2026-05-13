@@ -34,7 +34,6 @@ async def main() -> None:
         run_id="number-run-001",
         input=NumberInput(raw_numbers="10, 20, 30, 40, 50"),
         initial_state=NumberState(),
-        resume=True,
     )
 
     print("\n" + "=" * 60)

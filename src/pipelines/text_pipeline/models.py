@@ -1,15 +1,16 @@
-from pydantic import BaseModel
+from fsm.models import SagaInput, SagaState
 
 
-class SagaInput(BaseModel):
+class TextInput(SagaInput):
     """Входные данные для text pipeline"""
 
     raw_text: str
 
 
-class SagaState(BaseModel):
-    """Состояние text pipeline"""
+class TextState(SagaState):
+    """Состояние для text pipeline"""
 
+    state_name: str = "text_state"
     text: str | None = None
     tokens: list[str] = []
     result: str | None = None

@@ -1,25 +1,25 @@
 from dataclasses import dataclass
 
-from fsm.core import RunContext, SagaStep
-from pipelines.text_pipeline.models import SagaInput, SagaState
+from fsm.core import RunContext, StepAction
+from pipelines.text_pipeline.models import TextInput, TextState
 
 
 @dataclass(slots=True)
-class Preprocessing(SagaStep[SagaInput, SagaState]):
-    """Шаг предобработки текста"""
+class Preprocessing(StepAction[TextInput, TextState]):
+    """Предобработка текста: очистка и токенизация"""
 
     id: str = "preprocessing"
 
-    async def run(self, ctx: RunContext[SagaInput, SagaState]) -> None:
+    async def run(self, ctx: RunContext[TextInput, TextState]) -> None:
         ctx.state.text = ctx.input.raw_text.strip()
         ctx.state.tokens = ctx.state.text.split()
 
 
 @dataclass(slots=True)
-class Processing(SagaStep[SagaInput, SagaState]):
-    """Шаг обработки токенов"""
+class Processing(StepAction[TextInput, TextState]):
+    """Обработка: подсчет токенов"""
 
     id: str = "processing"
 
-    async def run(self, ctx: RunContext[SagaInput, SagaState]) -> None:
+    async def run(self, ctx: RunContext[TextInput, TextState]) -> None:
         ctx.state.result = f"tokens={len(ctx.state.tokens)}"

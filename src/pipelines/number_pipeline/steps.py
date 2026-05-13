@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 
-from fsm.core import RunContext, SagaStep
+from fsm.core import RunContext, StepAction
 from pipelines.number_pipeline.models import NumberInput, NumberState
 
 
 @dataclass(slots=True)
-class ParseNumbers(SagaStep[NumberInput, NumberState]):
-    """Шаг парсинга чисел из строки"""
+class ParseNumbers(StepAction[NumberInput, NumberState]):
+    """Парсинг чисел из строки"""
 
     id: str = "parse_numbers"
 
@@ -22,8 +22,8 @@ class ParseNumbers(SagaStep[NumberInput, NumberState]):
 
 
 @dataclass(slots=True)
-class CalculateSum(SagaStep[NumberInput, NumberState]):
-    """Шаг расчета суммы"""
+class CalculateSum(StepAction[NumberInput, NumberState]):
+    """Расчет суммы чисел"""
 
     id: str = "calculate_sum"
 
@@ -32,8 +32,8 @@ class CalculateSum(SagaStep[NumberInput, NumberState]):
 
 
 @dataclass(slots=True)
-class FormatResult(SagaStep[NumberInput, NumberState]):
-    """Шаг форматирования результата"""
+class FormatResult(StepAction[NumberInput, NumberState]):
+    """Форматирование результата"""
 
     id: str = "format_result"
 

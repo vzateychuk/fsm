@@ -1,4 +1,5 @@
 from typing import Generic, Protocol, TypeVar, Any
+from dataclasses import dataclass
 
 TIn = TypeVar("TIn")
 TState = TypeVar("TState")
@@ -30,6 +31,17 @@ class SagaStep(Generic[TIn, TState], Protocol):
     async def run(self, ctx: RunContext[TIn, TState]) -> None:
         """Выполнить шаг"""
         ...
+
+
+@dataclass(slots=True)
+class StepAction(Generic[TIn, TState], SagaStep[TIn, TState]):
+    """Базовый класс для step action-ов (канонические шаги pipeline)"""
+
+    id: str
+
+    async def run(self, ctx: RunContext[TIn, TState]) -> None:
+        """Выполнить действие"""
+        raise NotImplementedError
 
 
 class SagaDefinition(Generic[TIn, TState]):
