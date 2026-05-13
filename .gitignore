@@ -1,3 +1,10 @@
+# vzateychuk
+.pi
+.qwen
+.claude
+.data
+.codemie
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
