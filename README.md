@@ -46,12 +46,12 @@ src/
   - `state` — текущее состояние
   - `cursor` — текущий шаг
 
-- **`SagaStep[TIn, TState]`** — протокол (interface) для шага саги
+- **`SagaStep[TIn, TData]`** — протокол (interface) для шага саги
   - `id: str` — идентификатор шага (определяется подклассом)
   - `async def run(ctx: RunContext) -> None` — выполнить шаг
   - Определяет контракт, который должны реализовать все шаги
 
-- **`StepAction[TIn, TState]`** — базовый класс для конкретных шагов
+- **`StepAction[TIn, TData]`** — базовый класс для конкретных шагов
   - Имплементирует `SagaStep` протокол
   - Служит parent-класс для всех шагов в pipeline-ах
   - Конкретные подклассы определяют `id: str = "step_name"` с конкретным значением
@@ -145,7 +145,7 @@ python src/main/number_pipeline_main.py
        id: str = "my_step"
        
        async def run(self, ctx: RunContext[MyInput, MyData]) -> None:
-           ctx.state.processed = ctx.input.raw_data.upper()
+           ctx.data.processed = ctx.input.raw_data.upper()
    ```
 
 4. **Создать точку входа** (`my_pipeline_main.py`):
