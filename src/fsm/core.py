@@ -24,7 +24,7 @@ class RunContext(Generic[TIn, TState]):
 
 
 class SagaStep(Generic[TIn, TState], Protocol):
-    """Протокол для шага саги"""
+    """Interface/Протокол для шага саги"""
 
     id: str
 
@@ -35,9 +35,7 @@ class SagaStep(Generic[TIn, TState], Protocol):
 
 @dataclass(slots=True)
 class StepAction(Generic[TIn, TState], SagaStep[TIn, TState]):
-    """Базовый класс для step action-ов (канонические шаги pipeline)"""
-
-    id: str
+    """Абстрактный базовый класс для step action-ов (шаги pipeline), implements SagaStep"""
 
     async def run(self, ctx: RunContext[TIn, TState]) -> None:
         """Выполнить действие"""

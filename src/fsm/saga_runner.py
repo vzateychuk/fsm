@@ -12,11 +12,11 @@ class SagaRunner(Generic[TIn, TState]):
 
     def __init__(
         self,
-        definition: SagaDefinition[TIn, TState],
+        saga_def: SagaDefinition[TIn, TState],
         store: SagaProgressStore,
         state_type: type[TState],
     ) -> None:
-        self._def = definition
+        self._def = saga_def
         self._store = store
         self._state_type = state_type
 
