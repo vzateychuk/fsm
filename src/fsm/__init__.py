@@ -2,7 +2,6 @@ from fsm.core import (
     RunContext,
     SagaStep,
     SagaDefinition,
-    SagaProgressStore,
     TIn,
     TData,
 )
@@ -14,7 +13,6 @@ __all__ = [
     "RunContext",
     "SagaStep",
     "SagaDefinition",
-    "SagaProgressStore",
     "TIn",
     "TData",
     "SagaInput",

@@ -1,4 +1,4 @@
-from typing import Generic, Protocol, TypeVar, Any
+from typing import Generic, Protocol, TypeVar
 from dataclasses import dataclass
 
 TIn = TypeVar("TIn")
@@ -40,15 +40,3 @@ class SagaDefinition(Generic[TIn, TData]):
     def __init__(self, name: str, steps: list[SagaStep[TIn, TData]]) -> None:
         self.name = name
         self.steps = steps
-
-
-class SagaProgressStore(Protocol):
-    """Протокол хранилища прогресса"""
-
-    async def load(self, run_id: str) -> dict[str, Any] | None:
-        """Загрузить сохраненный прогресс"""
-        ...
-
-    async def save(self, data: dict[str, Any]) -> None:
-        """Сохранить прогресс"""
-        ...

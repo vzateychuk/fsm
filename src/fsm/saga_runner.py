@@ -1,8 +1,9 @@
 import logging
 from typing import Generic
 
-from fsm.core import RunContext, SagaDefinition, SagaProgressStore, TIn, TData
+from fsm.core import RunContext, SagaDefinition, TIn, TData
 from fsm.saga import Saga
+from store.store import Store, SavedProgress
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ class SagaRunner(Generic[TIn, TData]):
     def __init__(
         self,
         saga_def: SagaDefinition[TIn, TData],
-        store: SagaProgressStore,
+        store: Store,
         data_type: type[TData],
     ) -> None:
         self._def = saga_def
@@ -49,14 +50,13 @@ class SagaRunner(Generic[TIn, TData]):
 
             # Сохранить данные после шага
             data_type_name = type(run_ctx.data).__name__
-            await self._store.save(
-                {
-                    "run_id": run_ctx.run_id,
-                    "saga_name": run_ctx.saga_name,
-                    "cursor": run_ctx.cursor,
-                    "data": run_ctx.data.model_dump(),
-                }
-            )
+            progress: SavedProgress = {
+                "run_id": run_ctx.run_id,
+                "saga_name": run_ctx.saga_name,
+                "cursor": run_ctx.cursor,
+                "state": run_ctx.data.model_dump(),
+            }
+            await self._store.save(progress)
             logger.info(
                 f"Checkpoint saved: cursor={run_ctx.cursor}, data='{data_type_name}'"
             )
@@ -76,8 +76,8 @@ class SagaRunner(Generic[TIn, TData]):
         saved = await self._store.load(run_id)
         if saved and saved.get("saga_name") == self._def.name:
             logger.info(f"Resuming saga from cursor={saved['cursor']}")
-            logger.debug(f"Loaded data: {saved['data']}")
-            data = self._data_type.model_validate(saved["data"])
+            logger.debug(f"Loaded state: {saved['state']}")
+            data = self._data_type.model_validate(saved["state"])
             return RunContext[TIn, TData](
                 run_id=run_id,
                 saga_name=self._def.name,
