@@ -1,4 +1,5 @@
 from fsm.models import SagaInput, SagaData
+from pydantic import Field
 
 
 class IngestInput(SagaInput):
@@ -25,22 +26,22 @@ class IngestData(SagaData):
     md_body: str | None = None
 
     # S5: Parse to tokens
-    tokens: list[dict] = []
+    tokens: list[dict] = Field(default_factory=list)
 
     # S6: Build section path
-    section_path: list[str] = []
+    section_path: list[str] = Field(default_factory=list)
 
     # S7: Chunkify blocks
-    chunks: list[dict] = []
+    chunks: list[dict] = Field(default_factory=list)
 
     # S8: Tagging
-    tagged_chunks: list[dict] = []
+    tagged_chunks: list[dict] = Field(default_factory=list)
 
     # S9: Persist document
     document_id: str | None = None
 
     # S10: Persist chunks
-    chunk_ids: list[str] = []
+    chunk_ids: list[str] = Field(default_factory=list)
 
     # S11: Update FTS
     fts_updated: bool = False

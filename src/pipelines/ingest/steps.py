@@ -1,5 +1,7 @@
-from dataclasses import dataclass
+import asyncio
 import hashlib
+from dataclasses import dataclass
+from pathlib import Path
 
 from fsm.core import RunContext
 from pipelines.ingest.models import IngestInput, IngestData
@@ -15,8 +17,8 @@ class LoadSource:
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Loading document from source"
         try:
-            with open(ctx.input.source_path, "r", encoding="utf-8") as f:
-                ctx.data.raw_content = f.read()
+            text = await asyncio.to_thread(Path(ctx.input.source_path).read_text, encoding="utf-8")
+            ctx.data.raw_content = text
             ctx.data.desc = f"Loaded {len(ctx.data.raw_content)} characters"
         except Exception as e:
             ctx.data.desc = f"Error loading file: {e}"

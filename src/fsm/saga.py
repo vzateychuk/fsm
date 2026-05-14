@@ -1,8 +1,8 @@
-from typing import Generic, TypeVar, Optional, Callable, Awaitable
+from typing import Generic, Optional, Callable, Awaitable
 
 from fsm.core import RunContext, SagaDefinition, TIn, TData
 
-StepCallback = Callable[[int, RunContext], Awaitable[None]]
+StepCallback = Callable[[int, RunContext[TIn, TData]], Awaitable[None]]
 
 
 class Saga(Generic[TIn, TData]):

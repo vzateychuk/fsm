@@ -1,8 +1,9 @@
 from typing import Generic, Protocol, TypeVar
-from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 TIn = TypeVar("TIn")
-TData = TypeVar("TData")
+TData = TypeVar("TData", bound=BaseModel)
 
 
 class RunContext(Generic[TIn, TData]):
@@ -24,10 +25,17 @@ class RunContext(Generic[TIn, TData]):
 
 
 class SagaStep(Generic[TIn, TData], Protocol):
-    """Interface/Протокол для шага саги"""
+    """Interface/Протокол для шага саги
 
-    id: str | None = ""
-    desc: str | None = ""
+    Контракт:
+    - id: str — уникальный идентификатор шага (обязателен, используется для логирования и отладки)
+    - desc: str | None — опциональное описание шага
+    - run() — асинхронный метод выполнения шага
+    """
+
+    id: str  # Обязателен - не может быть None или пустым
+
+    desc: str | None = ""  # Опционально с дефолтом
 
     async def run(self, ctx: RunContext[TIn, TData]) -> None:
         """Выполнить шаг"""
