@@ -44,11 +44,9 @@
 
 ## ENTRYPOINTS
 
-| TYPE   | PATH                         |
-|--------|------------------------------|
-| script | src/main/text_pipeline_main.py |
-| script | src/main/number_pipeline_main.py |
-| script | src/main/ingest_main.py        |
+| TYPE   | PATH            |
+|--------|-----------------|
+| script | src/main/main.py |
 
 ---
 
@@ -64,8 +62,6 @@ src/
 ├── commons/
 │   └── logging_config.py
 ├── pipelines/
-│   ├── text_pipeline/
-│   ├── number_pipeline/
 │   └── ingest/
 ├── store/
 │   ├── inmem/
@@ -79,18 +75,16 @@ logs/
 
 ## MODULES
 
-| MODULE           | PATH                         | PURPOSE                                    | AI_TASK        |
-|------------------|------------------------------|--------------------------------------------|----------------|
-| fsm-core         | src/fsm/                     | Framework abstractions: RunContext, Saga, SagaRunner | BUSINESS_LOGIC |
-| commons          | src/commons/                 | Shared logging utilities                   | DEV_TOOLING    |
-| text-pipeline    | src/pipelines/text_pipeline/ | Text processing pipeline (2 steps)         | BUSINESS_LOGIC |
-| number-pipeline  | src/pipelines/number_pipeline/ | Number processing pipeline (3 steps)       | BUSINESS_LOGIC |
-| ingest           | src/pipelines/ingest/        | Document ingestion FTS pipeline (11 steps) | BUSINESS_LOGIC |
-| store            | src/store/                   | SagaProgressStore protocol + SavedProgress | INFRA          |
-| store-inmem      | src/store/inmem/             | In-memory store for testing                | INFRA          |
-| store-sql        | src/store/sql/               | SQL store stub (aiosqlite, TODO)           | INFRA          |
-| main-scripts     | src/main/                    | Pipeline entry points and run examples     | CLI_AUTOMATION |
-| tests            | tests/                       | Test suite (currently empty)               | TESTS          |
+| MODULE      | PATH             | PURPOSE                                    | AI_TASK        |
+|-------------|------------------|--------------------------------------------|----------------|
+| fsm-core    | src/fsm/         | Framework abstractions: RunContext, Saga, SagaRunner | BUSINESS_LOGIC |
+| commons     | src/commons/     | Shared logging utilities                   | DEV_TOOLING    |
+| ingest      | src/pipelines/ingest/ | Document ingestion FTS pipeline (11 steps) | BUSINESS_LOGIC |
+| store       | src/store/       | SagaProgressStore protocol + SavedProgress | INFRA          |
+| store-inmem | src/store/inmem/ | In-memory store for testing                | INFRA          |
+| store-sql   | src/store/sql/   | SQL store stub (aiosqlite, TODO)           | INFRA          |
+| main        | src/main/        | Pipeline entry point                       | CLI_AUTOMATION |
+| tests       | tests/           | Test suite (currently empty)               | TESTS          |
 
 ---
 
@@ -110,11 +104,9 @@ logs/
 
 ## FEATURE_MAP
 
-| FEATURE         | ROUTE | HANDLER                      | SERVICE              | MODEL                   |
-|-----------------|-------|------------------------------|----------------------|-------------------------|
-| text-pipeline   | -     | src/main/text_pipeline_main.py | Saga, SagaRunner | TextInput, TextData     |
-| number-pipeline | -     | src/main/number_pipeline_main.py | Saga, SagaRunner | NumberInput, NumberData |
-| ingest          | -     | src/main/ingest_main.py      | Saga, SagaRunner | IngestInput, IngestData |
+| FEATURE | ROUTE | HANDLER           | SERVICE       | MODEL                   |
+|---------|-------|-------------------|---------------|-------------------------|
+| ingest  | -     | src/main/main.py  | Saga, SagaRunner | IngestInput, IngestData |
 
 ---
 
@@ -128,10 +120,6 @@ logs/
 | SagaDefinition    | Pipeline definition: name + ordered steps list  |
 | SagaProgressStore | Protocol for checkpoint load/save               |
 | SavedProgress     | TypedDict: run_id, saga_name, cursor, state     |
-| TextInput         | Text pipeline input (raw_text)                  |
-| TextData          | Text pipeline state (text, tokens, result)      |
-| NumberInput       | Number pipeline input (raw_numbers string)      |
-| NumberData        | Number pipeline state (numbers, sum, result)    |
 | IngestInput       | Ingest pipeline input (source_path)             |
 | IngestData        | Ingest pipeline state (11 processing fields)    |
 
@@ -147,13 +135,11 @@ logs/
 | src/fsm/saga.py                         | Stateless Saga executor              | fsm-core                     |
 | src/fsm/saga_runner.py                  | Orchestrator with checkpoint support | fsm-core, store              |
 | src/store/store.py                      | Store protocol and SavedProgress     | store, store-inmem, store-sql|
-| src/store/inmem/inmemory_store.py       | In-memory store implementation       | store-inmem, main-scripts    |
-| src/store/sql/sql_store.py              | SQL store stub (aiosqlite)           | store-sql                    |
-| src/commons/logging_config.py           | Logging setup utility                | commons, main-scripts        |
-| src/main/text_pipeline_main.py       | Text pipeline entry point       | text-pipeline, main-scripts   |
-| src/main/number_pipeline_main.py     | Number pipeline entry point     | number-pipeline, main-scripts  |
-| src/main/ingest_main.py              | Ingest pipeline entry point     | ingest, main-scripts           |
-| README.md                               | Architecture and usage docs          | all                          |
+| src/store/inmem/inmemory_store.py | In-memory store implementation | store-inmem, main       |
+| src/store/sql/sql_store.py        | SQL store stub (aiosqlite)     | store-sql                |
+| src/commons/logging_config.py     | Logging setup utility          | commons, main            |
+| src/main/main.py                  | Ingest pipeline entry point    | ingest, main             |
+| README.md                         | Architecture and usage docs    | all                      |
 
 ---
 
