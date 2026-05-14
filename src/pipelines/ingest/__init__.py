@@ -1,5 +1,5 @@
-from pipelines.medical_indexer.models import MedDocInput, MedDocData
-from pipelines.medical_indexer.steps import (
+from pipelines.ingest.models import IngestInput, IngestData
+from pipelines.ingest.steps import (
     LoadSource,
     PreprocessText,
     DetectTargetSchema,
@@ -14,8 +14,8 @@ from pipelines.medical_indexer.steps import (
 )
 
 __all__ = [
-    "MedDocInput",
-    "MedDocData",
+    "IngestInput",
+    "IngestData",
     "LoadSource",
     "PreprocessText",
     "DetectTargetSchema",

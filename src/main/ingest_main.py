@@ -9,8 +9,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from commons import setup_logging
 from fsm.core import SagaDefinition
 from fsm.saga_runner import SagaRunner
-from pipelines.medical_indexer.models import MedDocInput, MedDocData
-from pipelines.medical_indexer.steps import (
+from pipelines.ingest.models import IngestInput, IngestData
+from pipelines.ingest.steps import (
     LoadSource,
     PreprocessText,
     DetectTargetSchema,
@@ -27,13 +27,13 @@ from store.inmem.inmemory_store import InMemoryStore
 
 
 async def main() -> None:
-    """Medical document indexer: process markdown files for FTS5 indexing (11 steps)"""
+    """Document ingestion pipeline: process markdown files for FTS5 indexing (11 steps)"""
 
-    setup_logging(level=logging.DEBUG, log_file="logs/medical_indexer.log")
+    setup_logging(level=logging.DEBUG, log_file="logs/ingest.log")
     logger = logging.getLogger(__name__)
 
-    definition = SagaDefinition[MedDocInput, MedDocData](
-        name="medical_indexer",
+    definition = SagaDefinition[IngestInput, IngestData](
+        name="ingest",
         steps=[
             LoadSource(),
             PreprocessText(),
@@ -50,36 +50,36 @@ async def main() -> None:
     )
 
     store = InMemoryStore()
-    runner = SagaRunner(definition, store, MedDocData)
+    runner = SagaRunner(definition, store, IngestData)
 
     logger.info("===> Before run <===")
 
     # Create sample markdown file
-    sample_md = """%%medical_schema
+    sample_md = """%%document
 ---
-title: Sample Medical Document
+title: Sample Document
 version: 1.0
 ---
 # Introduction
-This is a sample medical document for testing.
+This is a sample document for testing.
 
 ## Section 1
-Content of section 1 with medical information.
+Content of section 1 with information.
 
 ### Subsection 1.1
-Detailed medical information here.
+Detailed information here.
 
 ## Section 2
-More medical content.
+More content.
 """
-    sample_file = Path("sample_medical.md")
+    sample_file = Path("sample_document.md")
     sample_file.write_text(sample_md)
 
     try:
         ctx = await runner.run(
-            run_id="medical-001",
-            input=MedDocInput(source_path=str(sample_file)),
-            initial_state=MedDocData(),
+            run_id="ingest-001",
+            input=IngestInput(source_path=str(sample_file)),
+            initial_state=IngestData(),
         )
 
         logger.info("<=== After run ===>")

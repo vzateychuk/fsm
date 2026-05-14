@@ -1,14 +1,14 @@
 from fsm.models import SagaInput, SagaData
 
 
-class MedDocInput(SagaInput):
-    """Входные данные для medical indexer pipeline"""
+class IngestInput(SagaInput):
+    """Input data for ingest pipeline"""
 
     source_path: str
 
 
-class MedDocData(SagaData):
-    """Данные для medical indexer pipeline"""
+class IngestData(SagaData):
+    """Data for ingest pipeline"""
 
     desc: str | None = None
 

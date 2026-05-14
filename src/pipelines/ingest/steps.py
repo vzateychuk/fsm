@@ -2,18 +2,18 @@ from dataclasses import dataclass
 import hashlib
 
 from fsm.core import RunContext, StepAction
-from pipelines.medical_indexer.models import MedDocInput, MedDocData
+from pipelines.ingest.models import IngestInput, IngestData
 
 
 @dataclass(slots=True)
-class LoadSource(StepAction[MedDocInput, MedDocData]):
+class LoadSource(StepAction[IngestInput, IngestData]):
     """S1: Load markdown file from source path"""
 
     id = "load_source"
     desc = "Load markdown file from source"
 
-    async def run(self, ctx: RunContext[MedDocInput, MedDocData]) -> None:
-        ctx.data.desc = "Loading medical document from source"
+    async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
+        ctx.data.desc = "Loading document from source"
         try:
             with open(ctx.input.source_path, "r", encoding="utf-8") as f:
                 ctx.data.raw_content = f.read()
@@ -24,13 +24,13 @@ class LoadSource(StepAction[MedDocInput, MedDocData]):
 
 
 @dataclass(slots=True)
-class PreprocessText(StepAction[MedDocInput, MedDocData]):
+class PreprocessText(StepAction[IngestInput, IngestData]):
     """S2: Normalize text and compute SHA256 hash"""
 
     id = "preprocess_text"
     desc = "Normalize text and compute SHA256 hash"
 
-    async def run(self, ctx: RunContext[MedDocInput, MedDocData]) -> None:
+    async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Preprocessing text and computing hash"
         # Remove BOM, normalize line breaks
         content = ctx.data.raw_content.lstrip("﻿")
@@ -42,13 +42,13 @@ class PreprocessText(StepAction[MedDocInput, MedDocData]):
 
 
 @dataclass(slots=True)
-class DetectTargetSchema(StepAction[MedDocInput, MedDocData]):
+class DetectTargetSchema(StepAction[IngestInput, IngestData]):
     """S3: Detect target schema from document"""
 
     id = "detect_target_schema"
     desc = "Detect target schema from document header"
 
-    async def run(self, ctx: RunContext[MedDocInput, MedDocData]) -> None:
+    async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Detecting target schema"
         # Simple parser: first line may contain schema in format %%schema_name
         lines = ctx.data.raw_content.split("\n")
@@ -60,13 +60,13 @@ class DetectTargetSchema(StepAction[MedDocInput, MedDocData]):
 
 
 @dataclass(slots=True)
-class SplitControlBlocks(StepAction[MedDocInput, MedDocData]):
+class SplitControlBlocks(StepAction[IngestInput, IngestData]):
     """S4: Split into schema line, metadata block, and markdown body"""
 
     id = "split_control_blocks"
     desc = "Split document into control blocks (schema, metadata, body)"
 
-    async def run(self, ctx: RunContext[MedDocInput, MedDocData]) -> None:
+    async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Splitting control blocks"
         lines = ctx.data.raw_content.split("\n")
         idx = 0
@@ -93,13 +93,13 @@ class SplitControlBlocks(StepAction[MedDocInput, MedDocData]):
 
 
 @dataclass(slots=True)
-class ParseToTokens(StepAction[MedDocInput, MedDocData]):
+class ParseToTokens(StepAction[IngestInput, IngestData]):
     """S5: Parse markdown body to tokens"""
 
     id = "parse_to_tokens"
     desc = "Parse markdown to tokens for stable chunking"
 
-    async def run(self, ctx: RunContext[MedDocInput, MedDocData]) -> None:
+    async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Parsing markdown to tokens"
         # Simple parser: each non-empty line is a token
         tokens = []
@@ -117,13 +117,13 @@ class ParseToTokens(StepAction[MedDocInput, MedDocData]):
 
 
 @dataclass(slots=True)
-class BuildSectionPath(StepAction[MedDocInput, MedDocData]):
+class BuildSectionPath(StepAction[IngestInput, IngestData]):
     """S6: Build hierarchical section path from headings"""
 
     id = "build_section_path"
     desc = "Build hierarchical section path (breadcrumbs)"
 
-    async def run(self, ctx: RunContext[MedDocInput, MedDocData]) -> None:
+    async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Building section path"
         section_path = []
         for token in ctx.data.tokens:
@@ -137,13 +137,13 @@ class BuildSectionPath(StepAction[MedDocInput, MedDocData]):
 
 
 @dataclass(slots=True)
-class ChunkifyBlocks(StepAction[MedDocInput, MedDocData]):
+class ChunkifyBlocks(StepAction[IngestInput, IngestData]):
     """S7: Group tokens into logical chunks"""
 
     id = "chunkify_blocks"
     desc = "Convert markdown blocks into atomic chunks for FTS"
 
-    async def run(self, ctx: RunContext[MedDocInput, MedDocData]) -> None:
+    async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Chunkifying blocks"
         chunks = []
         current_chunk = {"heading": "", "content": [], "tokens": []}
@@ -169,13 +169,13 @@ class ChunkifyBlocks(StepAction[MedDocInput, MedDocData]):
 
 
 @dataclass(slots=True)
-class Tagging(StepAction[MedDocInput, MedDocData]):
+class Tagging(StepAction[IngestInput, IngestData]):
     """S8: Tag chunks deterministically"""
 
     id = "tagging"
     desc = "Extract meaningful terms for FTS boosting"
 
-    async def run(self, ctx: RunContext[MedDocInput, MedDocData]) -> None:
+    async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Tagging chunks"
         tagged_chunks = []
 
@@ -199,13 +199,13 @@ class Tagging(StepAction[MedDocInput, MedDocData]):
 
 
 @dataclass(slots=True)
-class PersistDocument(StepAction[MedDocInput, MedDocData]):
+class PersistDocument(StepAction[IngestInput, IngestData]):
     """S9: Save document metadata to database"""
 
     id = "persist_document"
     desc = "Save document metadata to database"
 
-    async def run(self, ctx: RunContext[MedDocInput, MedDocData]) -> None:
+    async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Persisting document metadata"
         # Simulation: generate ID based on hash
         ctx.data.document_id = ctx.data.file_hash[:16]
@@ -213,13 +213,13 @@ class PersistDocument(StepAction[MedDocInput, MedDocData]):
 
 
 @dataclass(slots=True)
-class PersistChunks(StepAction[MedDocInput, MedDocData]):
+class PersistChunks(StepAction[IngestInput, IngestData]):
     """S10: Save all chunks to database"""
 
     id = "persist_chunks"
     desc = "Save all chunks to database"
 
-    async def run(self, ctx: RunContext[MedDocInput, MedDocData]) -> None:
+    async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Persisting chunks to database"
         # Simulation: generate IDs for chunks
         ctx.data.chunk_ids = [f"{ctx.data.document_id}_{i}" for i in range(len(ctx.data.tagged_chunks))]
@@ -227,13 +227,13 @@ class PersistChunks(StepAction[MedDocInput, MedDocData]):
 
 
 @dataclass(slots=True)
-class UpdateFTS(StepAction[MedDocInput, MedDocData]):
+class UpdateFTS(StepAction[IngestInput, IngestData]):
     """S11: Update FTS5 index with chunks"""
 
     id = "update_fts"
     desc = "Update FTS5 search index"
 
-    async def run(self, ctx: RunContext[MedDocInput, MedDocData]) -> None:
+    async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Updating FTS5 index"
         # Simulation: mark FTS as updated
         ctx.data.fts_updated = True
