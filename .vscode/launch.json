@@ -8,6 +8,15 @@
       "program": "${file}",
       "console": "integratedTerminal",
       "justMyCode": true
-    }
+    },
+    {
+      "name": "Run main",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "main.main",
+      "args": ["LOG_FILE", "${workspaceFolder}/logs/ingest.log"],
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
   ]
 }

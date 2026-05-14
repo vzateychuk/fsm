@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -29,8 +30,14 @@ from store.inmem.inmemory_store import InMemoryStore
 async def main() -> None:
     """Document ingestion pipeline: process markdown files for FTS5 indexing (11 steps)"""
 
-    setup_logging(level=logging.DEBUG, log_file="logs/ingest.log")
+    # Log file path can be set via LOG_FILE environment variable
+    log_file = os.getenv("LOG_FILE", "logs/ingest.log")
+    setup_logging(level=logging.DEBUG, log_file=log_file)
     logger = logging.getLogger(__name__)
+
+    # Print log location info
+    print(f"[INFO] Logs directory: {os.path.abspath(os.path.dirname(log_file))}")
+    print(f"[INFO] Log file: {os.path.abspath(log_file)}")
 
     definition = SagaDefinition[IngestInput, IngestData](
         name="ingest",

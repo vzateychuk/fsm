@@ -1,4 +1,5 @@
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Optional
@@ -14,9 +15,17 @@ def setup_logging(
 
     Args:
         level: Уровень логирования (logging.INFO, logging.DEBUG, etc.)
-        log_file: Путь к файлу логов (опционально)
+        log_file: Путь к файлу логов (опционально).
+                  Может быть переопределён переменной окружения LOG_FILE
         log_format: Формат логов (опционально, используется default)
+
+    Environment variables:
+        LOG_FILE: Переопределяет log_file параметр если задана
     """
+    # Переменная окружения LOG_FILE переопределяет параметр
+    env_log_file = os.getenv("LOG_FILE")
+    if env_log_file:
+        log_file = env_log_file
     if log_format is None:
         log_format = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
 
