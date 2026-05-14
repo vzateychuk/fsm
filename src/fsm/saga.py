@@ -34,9 +34,9 @@ class Saga(Generic[TIn, TData]):
             # Выполнить шаг
             await step.run(ctx)
 
-            # Post-step callback
+            # Обновить cursor перед post-step callback для консистентного checkpoint
+            ctx.cursor = i + 1
+
+            # Post-step callback с актуальным cursor (указывает на следующий шаг)
             if self._post_step_callback:
                 await self._post_step_callback(i, ctx)
-
-            # Обновить cursor
-            ctx.cursor = i + 1
