@@ -2,6 +2,8 @@
 
 Минимальная абстрактная реализация FSM (Finite State Machine) с поддержкой саг, чекпоинтирования и логирования. Фреймворк позволяет создавать различные pipeline-ы обработки данных с автоматическим сохранением прогресса и возможностью возобновления из чекпоинтов.
 
+Текущая реализация включает **Ingest Pipeline** — 11-этапный pipeline обработки markdown-документов для индексирования в FTS5.
+
 ## Архитектура
 
 ```
@@ -16,12 +18,9 @@ src/
     saga_runner.py             # SagaRunner - orchestrator (load/save/resume)
     
   pipelines/                   # Конкретные реализации pipeline-ов
-    text_pipeline/             # Пример: pipeline обработки текста (2 шага)
-      models.py               # TextInput, TextData (наследуют SagaInput/SagaData)
-      steps.py                # Preprocessing, Processing (наследуют StepAction)
-    number_pipeline/           # Пример: pipeline обработки чисел (3 шага)
-      models.py               # NumberInput, NumberData
-      steps.py                # ParseNumbers, CalculateSum, FormatResult
+    ingest/                    # Document ingestion pipeline (11 шагов)
+      models.py               # IngestInput, IngestData
+      steps.py                # LoadSource, PreprocessText, DetectSchema, ... UpdateFTS
       
   store/                       # Реализации хранилища прогресса
     inmem/
@@ -30,8 +29,7 @@ src/
       sql_store.py            # SQL хранилище (stub)
       
   main/
-    text_pipeline_main.py      # Запуск text pipeline
-    number_pipeline_main.py    # Запуск number pipeline
+    main.py                    # Запуск ingest pipeline
 ```
 
 ## Ключевые компоненты
@@ -40,10 +38,10 @@ src/
 
 **Основные классы и протоколы:**
 
-- **`RunContext[TIn, TState]`** — контекст выполнения саги
+- **`RunContext[TIn, TData]`** — контекст выполнения саги
   - `run_id` — идентификатор запуска
   - `input` — входные данные
-  - `state` — текущее состояние
+  - `data` — текущие бизнес-данные контекста
   - `cursor` — текущий шаг
 
 - **`SagaStep[TIn, TData]`** — протокол (interface) для шага саги
@@ -61,10 +59,11 @@ src/
   - Все pipeline-специфичные Input классы наследуют от неё
 
 - **`SagaData`** — базовый класс для данных контекста
+  - `desc: str | None = None` — опциональное описание текущего состояния
   - Содержит только бизнес-данные (промежуточные результаты)
   - Все pipeline-специфичные Data классы наследуют от неё
 
-- **`SagaDefinition[TIn, TState]`** — определение саги
+- **`SagaDefinition[TIn, TData]`** — определение саги
   - `name: str` — имя саги
   - `steps: list[SagaStep]` — список шагов
 
@@ -72,15 +71,15 @@ src/
   - `async def load(run_id: str) -> dict` — загрузить сохраненный прогресс
   - `async def save(data: dict) -> None` — сохранить прогресс
 
-- **`Saga[TIn, TState]`** — stateless executor саги
+- **`Saga[TIn, TData]`** — stateless executor саги
   - Выполняет шаги саги
   - Вызывает callbacks перед/после шагов
   - НЕ отвечает за загрузку/сохранение
 
-- **`SagaRunner[TIn, TState]`** — orchestrator саги
+- **`SagaRunner[TIn, TData]`** — orchestrator саги
   - Загружает/создает pipeline из хранилища
   - Вызывает Saga для выполнения
-  - Обрабатывает сохранение состояния
+  - Обрабатывает сохранение данных
   - Решает запустить новый или возобновить существующий pipeline
 
 ### Common Utilities (`commons/`)
@@ -98,20 +97,27 @@ src/
 - **`steps.py`** — конкретные реализации шагов (наследуют StepAction)
 - **`__init__.py`** — экспорт публичного API
 
-**Текущие примеры:**
-- **text_pipeline** — обработка текста: токенизация → подсчет токенов
-- **number_pipeline** — обработка чисел: парсинг → сумма → форматирование
+**Текущая реализация:**
+- **ingest** — обработка markdown-документов (11 шагов):
+  1. LoadSource — загрузка файла
+  2. PreprocessText — нормализация и SHA256 хеш
+  3. DetectTargetSchema — определение схемы из заголовка
+  4. SplitControlBlocks — разбор на блоки (схема, метаданные, тело)
+  5. ParseToTokens — парсинг в токены
+  6. BuildSectionPath — построение иерархии заголовков
+  7. ChunkifyBlocks — группировка в логические блоки
+  8. Tagging — извлечение ключевых терминов
+  9. PersistDocument — сохранение метаданных документа
+  10. PersistChunks — сохранение блоков в БД
+  11. UpdateFTS — обновление индекса FTS5
 
 ## Использование
 
-### Запуск существующих pipeline-ов
+### Запуск pipeline
 
 ```bash
-# Text pipeline (2 шага)
-python src/main/text_pipeline_main.py
-
-# Number pipeline (3 шага)
-python src/main/number_pipeline_main.py
+# Ingest pipeline (11 шагов обработки markdown)
+python src/main/main.py
 ```
 
 ### Создание нового pipeline
@@ -221,8 +227,9 @@ setup_logging(level=logging.INFO, log_file="logs/my_pipeline.log")
    - НЕ отвечает за загрузку/сохранение
 
 3. `StepAction.run()` — конкретный шаг
-   - Изменяет состояние на основе входных данных
-   - Обновляет `ctx.state`
+   - Изменяет данные на основе входных данных
+   - Обновляет `ctx.data`
+   - Может обновить `ctx.data.desc` для отслеживания прогресса
 
 **Callbacks (custom logic):**
 ```python
@@ -263,6 +270,4 @@ async def post_step(step_idx, ctx):
 
 ## Примеры
 
-Смотри:
-- `src/main/text_pipeline_main.py` — pipeline с 2 шагами
-- `src/main/number_pipeline_main.py` — pipeline с 3 шагами
+Смотри `src/main/main.py` — полный пример Ingest Pipeline с 11 шагами обработки markdown-документов.
