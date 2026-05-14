@@ -1,0 +1,3 @@
+# no_schema_id.md: ожидается ошибка E_NO_SCHEMA_ID
+error_code: E_NO_SCHEMA_ID
+error_message: "Target Schema ID not found in document header"

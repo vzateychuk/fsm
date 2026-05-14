@@ -1,0 +1,38 @@
+# minimal_valid.md — expected output for FSM v1.3 (block-based chunking)
+# Примечания:
+# - Документ минимально валиден: есть Target Schema ID и один paragraph.
+# - Заголовков нет; section_path в этом случае будет пустым (или может быть подставлен из имени файла, если вы так решите).
+#   В FSM v1.3 такого правила не зафиксировано, поэтому ожидаем пустой section_path.
+# - fact chunk == paragraph, начинающийся строго с "**Label**:" (здесь fact нет).
+# - metadata блока нет.
+# - tags_text не содержит чисел/единиц.
+
+target_schema: consultation
+
+chunks_count: 1
+
+chunk_kinds:
+  - section
+
+# Так как заголовков нет, section_path ожидаемо пустой.
+# В тесте лучше проверять, что section_path либо пустой, либо равен fallback (если вы позже введёте fallback).
+section_paths_present:
+  - ""
+
+tags_text_contains:
+  - consultation
+  - minimal
+  - valid
+  - document
+  - paragraph
+
+edge_cases:
+  description: >
+    Минимальный валидный документ: проверяет, что пайплайн не требует заголовков и
+    корректно создаёт один section-чанк из единственного абзаца.
+    Также фиксирует, что при отсутствии заголовков section_path остаётся пустым.
+  asserts:
+    no_headings: true
+    single_paragraph: true
+    no_tables_no_lists: true
+    no_facts: true

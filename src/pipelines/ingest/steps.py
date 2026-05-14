@@ -52,12 +52,7 @@ class DetectTargetSchema:
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Detecting target schema"
-        # Simple parser: first line may contain schema in format %%schema_name
-        lines = ctx.data.raw_content.split("\n")
-        if lines and lines[0].startswith("%%"):
-            ctx.data.target_schema = lines[0][2:].strip()
-        else:
-            ctx.data.target_schema = "default"
+        ctx.data.target_schema = "default"
         ctx.data.desc = f"Schema detected: {ctx.data.target_schema}"
 
 
@@ -73,11 +68,6 @@ class SplitControlBlocks:
         lines = ctx.data.raw_content.split("\n")
         idx = 0
 
-        # Schema line
-        if lines and lines[0].startswith("%%"):
-            ctx.data.schema_line = lines[0]
-            idx = 1
-
         # Metadata block (between --- markers)
         metadata_lines = []
         if idx < len(lines) and lines[idx].strip() == "---":
@@ -91,7 +81,7 @@ class SplitControlBlocks:
 
         # Markdown body (rest)
         ctx.data.md_body = "\n".join(lines[idx:])
-        ctx.data.desc = f"Split: schema_line={bool(ctx.data.schema_line)}, metadata={bool(ctx.data.metadata_block)}, body_lines={len(ctx.data.md_body.split(chr(10)))}"
+        ctx.data.desc = f"Split: metadata={bool(ctx.data.metadata_block)}, body_lines={len(ctx.data.md_body.split(chr(10)))}"
 
 
 @dataclass(slots=True)
@@ -128,7 +118,7 @@ class ChunkifyBlocks:
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = "Chunkifying blocks with section paths"
         chunks = []
-        current_chunk = {"heading": "", "section_path": [], "content": [], "tokens": []}
+        current_chunk = {"heading": "", "section_path": "", "content": [], "tokens": []}
         section_path = []
 
         for token in ctx.data.tokens:
@@ -144,7 +134,7 @@ class ChunkifyBlocks:
                         chunks.append(current_chunk)
                     current_chunk = {
                         "heading": token["content"].lstrip("#").strip(),
-                        "section_path": list(section_path),
+                        "section_path": " > ".join(section_path),
                         "content": [],
                         "tokens": [token]
                     }

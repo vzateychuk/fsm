@@ -1,0 +1,133 @@
+# consultation_deep.md — expected output for FSM v1.3 (block-based chunking)
+# Notes:
+# - Chunking is "block-based": chunks are created for paragraph/table/list blocks, not for headings themselves.
+# - fact chunk == paragraph that starts with "**Label**:" (strict).
+# - metadata block is not present here; the trailing '---' section is treated as normal markdown and indexed.
+# - tags_text does NOT include numbers/units; do not assert numeric tokens here.
+
+target_schema: consultation
+
+# Expected number of chunks produced by S6 for consultation_deep.md
+chunks_count: 25
+
+# Expected chunk kinds in the order they appear in the document (S6 output)
+chunk_kinds:
+  # ## История болезни
+  - section
+
+  # ## Анамнез заболевания
+  - section
+
+  # ### Факторы риска
+  - list
+
+  # ## Объективное обследование
+  # ### Общее состояние
+  - section
+  # ### Сердечно-сосудистая система
+  - section
+  # #### Дополнительные признаки
+  - list
+  # ### Ортостатическая проба
+  - section
+
+  # ## Инструментальные исследования
+  # ### ЭКГ в покое
+  - section
+  # ### Эхокардиография
+  - table
+  - section   # paragraph after echo table ("Диастолическая функция ...")
+  # #### Поражение верхушки
+  - section
+  # ### Велоэргометрия (нагрузочный тест)
+  - section
+  - fact      # **Заключение**: ...
+  # ### Коронарография (в течение 24 часов)
+  - table
+  - fact      # **Процедура**: ...
+  # #### Осложнения
+  - section
+
+  # ## Рекомендации
+  # ### Медикаментозная терапия (ordered list)
+  - list
+  # ### Образ жизни (unordered list)
+  - list
+  # ### Наблюдение (unordered list)
+  - list
+
+  # ## Прогноз
+  - section
+
+  # --- (separator) followed by fact paragraphs
+  - fact      # **Врач**: ...
+  - fact      # **Дата консультации**: ...
+  - fact      # **Подпись врача**: ...
+
+  # ## Дополнительная информация
+  - fact      # **Аббревиатуры**:
+  - list      # abbreviations list
+
+# Minimal set of section paths that MUST be present among produced chunks (S6 output).
+# Important: we do NOT require "bare H2" paths where that H2 has no direct paragraph/list/table blocks.
+section_paths_present:
+  - консультация кардиолога > история болезни
+  - консультация кардиолога > анамнез заболевания
+  - консультация кардиолога > анамнез заболевания > факторы риска
+  - консультация кардиолога > объективное обследование > общее состояние
+  - консультация кардиолога > объективное обследование > сердечно-сосудистая система
+  - консультация кардиолога > объективное обследование > сердечно-сосудистая система > дополнительные признаки
+  - консультация кардиолога > объективное обследование > ортостатическая проба
+  - консультация кардиолога > инструментальные исследования > экг в покое
+  - консультация кардиолога > инструментальные исследования > эхокардиография
+  - консультация кардиолога > инструментальные исследования > эхокардиография > поражение верхушки
+  - консультация кардиолога > инструментальные исследования > велоэргометрия (нагрузочный тест)
+  - консультация кардиолога > инструментальные исследования > коронарография (в течение 24 часов)
+  - консультация кардиолога > инструментальные исследования > коронарография (в течение 24 часов) > осложнения
+  - консультация кардиолога > рекомендации > медикаментозная терапия
+  - консультация кардиолога > рекомендации > образ жизни
+  - консультация кардиолога > рекомендации > наблюдение
+  - консультация кардиолога > прогноз
+  - консультация кардиолога > дополнительная информация
+
+# Tokens that should appear in tags_text for at least one chunk.
+# Keep these assertions compatible with deterministic tokenization (no lemmatization) and "no numbers/units".
+tags_text_contains:
+  # system tokens
+  - consultation
+  # structural tokens from headings/paths
+  - консультация
+  - кардиолога
+  - рекомендации
+  - эхокардиография
+  - коронарография
+  - экг
+  - аббревиатуры
+  # domain tokens that appear verbatim in the document
+  - аторвастатин
+  - клопидогрел
+  - аспирин
+  - ишемии
+
+# Developer notes (not used in strict tests unless you want to)
+edge_cases:
+  description: >
+    This document validates deep heading stacks (H1–H4), mixed block types (table+paragraph),
+    strict fact detection by "**Label**:", and that trailing '---' section is indexed as normal content.
+  expects_fact_labels:
+    - заключение
+    - процедура
+    - врач
+    - дата консультации
+    - подпись врача
+    - аббревиатуры
+  expects_lists:
+    - факторы риска
+    - дополнительные признаки
+    - медикаментозная терапия
+    - образ жизни
+    - наблюдение
+    - аббревиатуры (список)
+  expects_tables:
+    - эхокардиография
+    - коронарография

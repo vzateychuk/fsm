@@ -42,6 +42,16 @@
 
 ---
 
+## ENV_CONFIG
+
+| KEY      | REQUIRED | PURPOSE                              |
+|----------|----------|--------------------------------------|
+| LOG_FILE | no       | Log output path (default: logs/ingest.log) |
+
+*(source: src/main/main.py:33)*
+
+---
+
 ## ENTRYPOINTS
 
 | TYPE   | PATH            |
@@ -79,7 +89,7 @@ logs/
 |-------------|------------------|--------------------------------------------|----------------|
 | fsm-core    | src/fsm/         | Framework abstractions: RunContext, Saga, SagaRunner | BUSINESS_LOGIC |
 | commons     | src/commons/     | Shared logging utilities                   | DEV_TOOLING    |
-| ingest      | src/pipelines/ingest/ | Document ingestion FTS pipeline (11 steps) | BUSINESS_LOGIC |
+| ingest      | src/pipelines/ingest/ | Document ingestion FTS pipeline (10 steps) | BUSINESS_LOGIC |
 | store       | src/store/       | SagaProgressStore protocol + SavedProgress | INFRA          |
 | store-inmem | src/store/inmem/ | In-memory store for testing                | INFRA          |
 | store-sql   | src/store/sql/   | SQL store stub (aiosqlite, TODO)           | INFRA          |
@@ -97,7 +107,7 @@ logs/
 | 1    | caller            | SagaRunner.run     | Start saga with run_id and input    | src/fsm/saga_runner.py:23    |
 | 2    | SagaRunner        | store.load         | Load saved checkpoint by run_id     | src/fsm/saga_runner.py:76    |
 | 3    | SagaRunner        | Saga.run           | Execute steps from cursor position  | src/fsm/saga.py:21           |
-| 4    | Saga.run          | StepAction.run     | Execute single step, update ctx     | src/fsm/saga.py:35           |
+| 4    | Saga.run          | SagaStep.run       | Execute single step, update ctx     | src/fsm/saga.py:35           |
 | 5    | post_step_callback| store.save         | Persist checkpoint after each step  | src/fsm/saga_runner.py:47    |
 
 ---
@@ -118,7 +128,7 @@ logs/
 | SagaData          | Base Pydantic class for pipeline context/state  |
 | RunContext        | Execution context: run_id, cursor, input, data  |
 | SagaDefinition    | Pipeline definition: name + ordered steps list  |
-| SagaProgressStore | Protocol for checkpoint load/save               |
+| Store             | Protocol for checkpoint load/save               |
 | SavedProgress     | TypedDict: run_id, saga_name, cursor, state     |
 | IngestInput       | Ingest pipeline input (source_path)             |
 | IngestData        | Ingest pipeline state (11 processing fields)    |
@@ -154,3 +164,4 @@ logs/
 ---
 
 <!-- Generated: 2026-05-14 -->
+<!-- updated 2026-05-14: SagaProgressStore→Store in DATA_ENTITIES; StepAction→SagaStep in FLOWS; ingest 11→10 steps; added ENV_CONFIG -->

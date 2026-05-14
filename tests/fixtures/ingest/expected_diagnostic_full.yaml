@@ -1,0 +1,115 @@
+# diagnostic_full.md — expected output for FSM v1.3 (block-based chunking)
+# Notes:
+# - Block-based chunking: chunks are created for paragraph/table/list blocks, not for headings.
+# - fact chunk == paragraph that starts with "**Label**:" (strict).
+# - metadata block (after '--- metadata:') is stripped at S3 and NOT indexed.
+# - tags_text does NOT include numbers/units; do not assert numeric tokens here.
+
+target_schema: diagnostic
+
+# S6 expected chunks for diagnostic_full.md
+chunks_count: 16
+
+# Expected chunk kinds in the order they appear in the document (S6 output)
+chunk_kinds:
+  # Under H1 there is a "header paragraph" (date/doctor/specialty/apparatus lines)
+  - section
+
+  # ## Условия исследования
+  - section
+
+  # ## Клиническое значение
+  # **Эзофагит**: + list
+  - fact
+  - list
+  # **Гастрит**: + list
+  - fact
+  - list
+  # **Язвенный дефект**: + list
+  - fact
+  - list
+
+  # ## Находки по разделам
+  # ### Пищевод (table)
+  - table
+
+  # ### Желудок (intro paragraph)
+  - section
+
+  # #### Кардиальный отдел
+  - section
+  # #### Дно желудка
+  - section
+  # #### Тело желудка
+  - section
+  # #### Антральный отдел
+  - section
+
+  # ### Двенадцатиперстная кишка
+  - section
+
+  # ## Заключение
+  - section
+
+  # **Рекомендации**: + list
+  - fact
+  - list
+
+# Minimal set of section paths that MUST be present among produced chunks (S6 output).
+# Do not require "bare H2" paths where H2 has no direct blocks; but here most H2 do have blocks.
+section_paths_present:
+  - фгдс (эзофагогастродуоденоскопия) > условия исследования
+  - фгдс (эзофагогастродуоденоскопия) > клиническое значение
+  - фгдс (эзофагогастродуоденоскопия) > находки по разделам > пищевод
+  - фгдс (эзофагогастродуоденоскопия) > находки по разделам > желудок
+  - фгдс (эзофагогастродуоденоскопия) > находки по разделам > желудок > кардиальный отдел
+  - фгдс (эзофагогастродуоденоскопия) > находки по разделам > желудок > дно желудка
+  - фгдс (эзофагогастродуоденоскопия) > находки по разделам > желудок > тело желудка
+  - фгдс (эзофагогастродуоденоскопия) > находки по разделам > желудок > антральный отдел
+  - фгдс (эзофагогастродуоденоскопия) > находки по разделам > двенадцатиперстная кишка
+  - фгдс (эзофагогастродуоденоскопия) > заключение
+
+# Tokens that should appear in tags_text for at least one chunk.
+# Keep compatible with deterministic tokenization and "no numbers/units".
+tags_text_contains:
+  # system token from schema
+  - diagnostic
+  # structural tokens from headings/paths
+  - фгдс
+  - эзофагогастродуоденоскопия
+  - клиническое
+  - значение
+  - пищевод
+  - желудок
+  - двенадцатиперстная
+  - кишка
+  - заключение
+  - рекомендации
+  # domain tokens present verbatim
+  - эзофагит
+  - гастрит
+  - язвенный
+  - дефект
+  - эрозии
+  - омепразол
+  - диета
+  - гастроэнтеролога
+
+edge_cases:
+  description: >
+    Validates: header paragraph under H1, fact+list pairs in 'Клиническое значение',
+    mix of table and multiple subsections in 'Находки по разделам',
+    and fact+list in 'Заключение' (recommendations).
+    Also validates that trailing metadata block is stripped (not indexed).
+  expects_fact_labels:
+    - эзофагит
+    - гастрит
+    - язвенный дефект
+    - рекомендации
+  expects_lists:
+    - эзофагит (details list)
+    - гастрит (details list)
+    - язвенный дефект (details list)
+    - рекомендации (drug/diet/follow-up list)
+  expects_tables:
+    - пищевод (findings table)

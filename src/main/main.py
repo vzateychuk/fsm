@@ -59,31 +59,17 @@ async def main() -> None:
 
     logger.info("===> Before run <===")
 
-    # Create sample markdown file
-    sample_md = """%%document
----
-title: Sample Document
-version: 1.0
----
-# Introduction
-This is a sample document for testing.
+    # Load sample document from file system
+    ingest_file = Path(os.getenv("INGEST_FILE", "tests/fixtures/ingest/consultation_deep.md"))
 
-## Section 1
-Content of section 1 with information.
-
-### Subsection 1.1
-Detailed information here.
-
-## Section 2
-More content.
-"""
-    sample_file = Path("sample_document.md")
-    sample_file.write_text(sample_md)
+    if not ingest_file.exists():
+        logger.error(f"Document file not found: {ingest_file}")
+        sys.exit(1)
 
     try:
         ctx = await runner.run(
             run_id="ingest-001",
-            input=IngestInput(source_path=str(sample_file)),
+            input=IngestInput(source_path=str(ingest_file)),
             initial_data=IngestData(),
         )
 
@@ -92,10 +78,9 @@ More content.
         logger.info(f"Document ID: {ctx.data.document_id}")
         logger.info(f"Chunks created: {len(ctx.data.chunk_ids)}")
         logger.info(f"FTS updated: {ctx.data.fts_updated}")
-    finally:
-        # Cleanup
-        if sample_file.exists():
-            sample_file.unlink()
+    except Exception as e:
+        logger.error(f"Pipeline failed: {e}", exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
