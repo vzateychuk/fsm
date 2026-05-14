@@ -8,7 +8,7 @@ from pipelines.number_pipeline.models import NumberInput, NumberData
 class ParseNumbers(StepAction[NumberInput, NumberData]):
     """Парсинг чисел из строки"""
 
-    id: str = "parse_numbers"
+    id = "parse_numbers"
 
     async def run(self, ctx: RunContext[NumberInput, NumberData]) -> None:
         try:
@@ -25,7 +25,7 @@ class ParseNumbers(StepAction[NumberInput, NumberData]):
 class CalculateSum(StepAction[NumberInput, NumberData]):
     """Расчет суммы чисел"""
 
-    id: str = "calculate_sum"
+    id = "calculate_sum"
 
     async def run(self, ctx: RunContext[NumberInput, NumberData]) -> None:
         ctx.data.sum_value = sum(ctx.data.numbers)
@@ -35,7 +35,7 @@ class CalculateSum(StepAction[NumberInput, NumberData]):
 class FormatResult(StepAction[NumberInput, NumberData]):
     """Форматирование результата"""
 
-    id: str = "format_result"
+    id = "format_result"
 
     async def run(self, ctx: RunContext[NumberInput, NumberData]) -> None:
         count = len(ctx.data.numbers)

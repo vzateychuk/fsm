@@ -26,7 +26,8 @@ class RunContext(Generic[TIn, TData]):
 class SagaStep(Generic[TIn, TData], Protocol):
     """Interface/Протокол для шага саги"""
 
-    id: str
+    id: str | None = ""
+    desc: str | None = ""
 
     async def run(self, ctx: RunContext[TIn, TData]) -> None:
         """Выполнить шаг"""

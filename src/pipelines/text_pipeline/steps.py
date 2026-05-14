@@ -8,7 +8,7 @@ from pipelines.text_pipeline.models import TextInput, TextData
 class Preprocessing(StepAction[TextInput, TextData]):
     """Предобработка текста: очистка и токенизация"""
 
-    id: str = "preprocessing"
+    id = "preprocessing"
 
     async def run(self, ctx: RunContext[TextInput, TextData]) -> None:
         ctx.data.text = ctx.input.raw_text.strip()
@@ -19,7 +19,7 @@ class Preprocessing(StepAction[TextInput, TextData]):
 class Processing(StepAction[TextInput, TextData]):
     """Обработка: подсчет токенов"""
 
-    id: str = "processing"
+    id = "processing"
 
     async def run(self, ctx: RunContext[TextInput, TextData]) -> None:
         ctx.data.result = f"tokens={len(ctx.data.tokens)}"

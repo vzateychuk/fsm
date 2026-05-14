@@ -54,7 +54,7 @@ src/
 - **`StepAction[TIn, TData]`** — базовый класс для конкретных шагов
   - Имплементирует `SagaStep` протокол
   - Служит parent-класс для всех шагов в pipeline-ах
-  - Конкретные подклассы определяют `id: str = "step_name"` с конкретным значением
+  - Конкретные подклассы определяют `id = "step_name"` с конкретным значением
   - **Дизайн:** `id` определяется только в подклассах — каждый шаг имеет свой уникальный id
 
 - **`SagaInput`** — базовый класс для входных данных
@@ -142,7 +142,7 @@ python src/main/number_pipeline_main.py
 
    @dataclass(slots=True)
    class MyStep(StepAction[MyInput, MyData]):
-       id: str = "my_step"
+       id = "my_step"
        
        async def run(self, ctx: RunContext[MyInput, MyData]) -> None:
            ctx.data.processed = ctx.input.raw_data.upper()

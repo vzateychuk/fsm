@@ -10,4 +10,4 @@ class SagaInput(BaseModel):
 class SagaData(BaseModel):
     """Базовый класс для данных контекста"""
 
-    pass
+    desc: str | None = None
