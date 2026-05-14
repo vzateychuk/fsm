@@ -26,14 +26,14 @@ class SagaRunner(Generic[TIn, TData]):
         *,
         run_id: str,
         input: TIn,
-        initial_state: TData,
+        initial_data: TData,
     ) -> RunContext[TIn, TData]:
         """Запустить Saga: загрузить/создать, выполнить, сохранить"""
 
         logger.info(f"Starting saga '{self._def.name}' (run_id={run_id})")
 
         # Загрузить или создать pipeline
-        ctx = await self._load_or_create_context(run_id, input, initial_state)
+        ctx = await self._load_or_create_context(run_id, input, initial_data)
 
         # Callbacks для сохранения данных
         async def pre_step(step_idx: int, run_ctx: RunContext[TIn, TData]) -> None:
@@ -69,7 +69,7 @@ class SagaRunner(Generic[TIn, TData]):
         return ctx
 
     async def _load_or_create_context(
-        self, run_id: str, input: TIn, initial_state: TData
+        self, run_id: str, input: TIn, initial_data: TData
     ) -> RunContext[TIn, TData]:
         """Загрузить сохраненный контекст или создать новый"""
 
@@ -92,5 +92,5 @@ class SagaRunner(Generic[TIn, TData]):
                 saga_name=self._def.name,
                 cursor=0,
                 input=input,
-                data=initial_state,
+                data=initial_data,
             )

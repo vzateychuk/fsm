@@ -79,7 +79,7 @@ More content.
         ctx = await runner.run(
             run_id="ingest-001",
             input=IngestInput(source_path=str(sample_file)),
-            initial_state=IngestData(),
+            initial_data=IngestData(),
         )
 
         logger.info("<=== After run ===>")
