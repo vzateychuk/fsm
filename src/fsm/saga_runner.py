@@ -74,7 +74,7 @@ class SagaRunner(Generic[TIn, TData]):
         """Загрузить сохраненный контекст или создать новый"""
 
         saved = await self._store.load(run_id)
-        if saved and saved.get("saga_name") == self._def.name:
+        if saved and saved["saga_name"] == self._def.name:
             logger.info(f"Resuming saga from cursor={saved['cursor']}")
             logger.debug(f"Loaded state: {saved['state']}")
             data = self._data_type.model_validate(saved["state"])

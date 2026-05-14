@@ -17,7 +17,6 @@ from pipelines.ingest.steps import (
     DetectTargetSchema,
     SplitControlBlocks,
     ParseToTokens,
-    BuildSectionPath,
     ChunkifyBlocks,
     Tagging,
     PersistDocument,
@@ -28,7 +27,7 @@ from store.inmem.inmemory_store import InMemoryStore
 
 
 async def main() -> None:
-    """Document ingestion pipeline: process markdown files for FTS5 indexing (11 steps)"""
+    """Document ingestion pipeline: process markdown files for FTS5 indexing (10 steps)"""
 
     # Log file path can be set via LOG_FILE environment variable
     log_file = os.getenv("LOG_FILE", "logs/ingest.log")
@@ -47,7 +46,6 @@ async def main() -> None:
             DetectTargetSchema(),
             SplitControlBlocks(),
             ParseToTokens(),
-            BuildSectionPath(),
             ChunkifyBlocks(),
             Tagging(),
             PersistDocument(),

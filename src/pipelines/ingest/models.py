@@ -28,10 +28,7 @@ class IngestData(SagaData):
     # S5: Parse to tokens
     tokens: list[dict] = Field(default_factory=list)
 
-    # S6: Build section path
-    section_path: list[str] = Field(default_factory=list)
-
-    # S7: Chunkify blocks
+    # S6: Chunkify blocks (with section paths)
     chunks: list[dict] = Field(default_factory=list)
 
     # S8: Tagging

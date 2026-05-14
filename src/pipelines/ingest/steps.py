@@ -119,46 +119,35 @@ class ParseToTokens:
 
 
 @dataclass(slots=True)
-class BuildSectionPath:
-    """S6: Build hierarchical section path from headings"""
+class ChunkifyBlocks:
+    """S6: Group tokens into logical chunks with hierarchical section path"""
 
-    id = "build_section_path"
-    desc = "Build hierarchical section path (breadcrumbs)"
+    id = "chunkify_blocks"
+    desc = "Convert markdown blocks into atomic chunks with breadcrumb context for RAG"
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
-        ctx.data.desc = "Building section path"
+        ctx.data.desc = "Chunkifying blocks with section paths"
+        chunks = []
+        current_chunk = {"heading": "", "section_path": [], "content": [], "tokens": []}
         section_path = []
+
         for token in ctx.data.tokens:
             if token["type"] == "heading":
                 level = token["level"]
                 # Trim path to correct depth
                 section_path = section_path[:level - 1]
                 section_path.append(token["content"].lstrip("#").strip())
-        ctx.data.section_path = section_path
-        ctx.data.desc = f"Section path: {' > '.join(section_path) if section_path else 'root'}"
 
-
-@dataclass(slots=True)
-class ChunkifyBlocks:
-    """S7: Group tokens into logical chunks"""
-
-    id = "chunkify_blocks"
-    desc = "Convert markdown blocks into atomic chunks for FTS"
-
-    async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
-        ctx.data.desc = "Chunkifying blocks"
-        chunks = []
-        current_chunk = {"heading": "", "content": [], "tokens": []}
-
-        for token in ctx.data.tokens:
-            if token["type"] == "heading" and token["level"] <= 2:
-                if current_chunk["content"]:
-                    chunks.append(current_chunk)
-                current_chunk = {
-                    "heading": token["content"].lstrip("#").strip(),
-                    "content": [],
-                    "tokens": [token]
-                }
+                if level <= 2:
+                    # Major heading — start new chunk
+                    if current_chunk["content"]:
+                        chunks.append(current_chunk)
+                    current_chunk = {
+                        "heading": token["content"].lstrip("#").strip(),
+                        "section_path": list(section_path),
+                        "content": [],
+                        "tokens": [token]
+                    }
             else:
                 current_chunk["content"].append(token["content"])
                 current_chunk["tokens"].append(token)
@@ -167,7 +156,7 @@ class ChunkifyBlocks:
             chunks.append(current_chunk)
 
         ctx.data.chunks = chunks
-        ctx.data.desc = f"Created {len(chunks)} chunks"
+        ctx.data.desc = f"Created {len(chunks)} chunks with breadcrumbs"
 
 
 @dataclass(slots=True)
