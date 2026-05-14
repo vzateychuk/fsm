@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 import hashlib
 
-from fsm.core import RunContext, StepAction
+from fsm.core import RunContext
 from pipelines.ingest.models import IngestInput, IngestData
 
 
 @dataclass(slots=True)
-class LoadSource(StepAction[IngestInput, IngestData]):
+class LoadSource:
     """S1: Load markdown file from source path"""
 
     id = "load_source"
@@ -24,7 +24,7 @@ class LoadSource(StepAction[IngestInput, IngestData]):
 
 
 @dataclass(slots=True)
-class PreprocessText(StepAction[IngestInput, IngestData]):
+class PreprocessText:
     """S2: Normalize text and compute SHA256 hash"""
 
     id = "preprocess_text"
@@ -42,7 +42,7 @@ class PreprocessText(StepAction[IngestInput, IngestData]):
 
 
 @dataclass(slots=True)
-class DetectTargetSchema(StepAction[IngestInput, IngestData]):
+class DetectTargetSchema:
     """S3: Detect target schema from document"""
 
     id = "detect_target_schema"
@@ -60,7 +60,7 @@ class DetectTargetSchema(StepAction[IngestInput, IngestData]):
 
 
 @dataclass(slots=True)
-class SplitControlBlocks(StepAction[IngestInput, IngestData]):
+class SplitControlBlocks:
     """S4: Split into schema line, metadata block, and markdown body"""
 
     id = "split_control_blocks"
@@ -93,7 +93,7 @@ class SplitControlBlocks(StepAction[IngestInput, IngestData]):
 
 
 @dataclass(slots=True)
-class ParseToTokens(StepAction[IngestInput, IngestData]):
+class ParseToTokens:
     """S5: Parse markdown body to tokens"""
 
     id = "parse_to_tokens"
@@ -117,7 +117,7 @@ class ParseToTokens(StepAction[IngestInput, IngestData]):
 
 
 @dataclass(slots=True)
-class BuildSectionPath(StepAction[IngestInput, IngestData]):
+class BuildSectionPath:
     """S6: Build hierarchical section path from headings"""
 
     id = "build_section_path"
@@ -137,7 +137,7 @@ class BuildSectionPath(StepAction[IngestInput, IngestData]):
 
 
 @dataclass(slots=True)
-class ChunkifyBlocks(StepAction[IngestInput, IngestData]):
+class ChunkifyBlocks:
     """S7: Group tokens into logical chunks"""
 
     id = "chunkify_blocks"
@@ -169,7 +169,7 @@ class ChunkifyBlocks(StepAction[IngestInput, IngestData]):
 
 
 @dataclass(slots=True)
-class Tagging(StepAction[IngestInput, IngestData]):
+class Tagging:
     """S8: Tag chunks deterministically"""
 
     id = "tagging"
@@ -199,7 +199,7 @@ class Tagging(StepAction[IngestInput, IngestData]):
 
 
 @dataclass(slots=True)
-class PersistDocument(StepAction[IngestInput, IngestData]):
+class PersistDocument:
     """S9: Save document metadata to database"""
 
     id = "persist_document"
@@ -213,7 +213,7 @@ class PersistDocument(StepAction[IngestInput, IngestData]):
 
 
 @dataclass(slots=True)
-class PersistChunks(StepAction[IngestInput, IngestData]):
+class PersistChunks:
     """S10: Save all chunks to database"""
 
     id = "persist_chunks"
@@ -227,7 +227,7 @@ class PersistChunks(StepAction[IngestInput, IngestData]):
 
 
 @dataclass(slots=True)
-class UpdateFTS(StepAction[IngestInput, IngestData]):
+class UpdateFTS:
     """S11: Update FTS5 index with chunks"""
 
     id = "update_fts"

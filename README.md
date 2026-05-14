@@ -45,15 +45,10 @@ src/
   - `cursor` — текущий шаг
 
 - **`SagaStep[TIn, TData]`** — протокол (interface) для шага саги
-  - `id: str` — идентификатор шага (определяется подклассом)
+  - `id: str` — идентификатор шага
+  - `desc: str | None = None` — опциональное описание шага
   - `async def run(ctx: RunContext) -> None` — выполнить шаг
-  - Определяет контракт, который должны реализовать все шаги
-
-- **`StepAction[TIn, TData]`** — базовый класс для конкретных шагов
-  - Имплементирует `SagaStep` протокол
-  - Служит parent-класс для всех шагов в pipeline-ах
-  - Конкретные подклассы определяют `id = "step_name"` с конкретным значением
-  - **Дизайн:** `id` определяется только в подклассах — каждый шаг имеет свой уникальный id
+  - **Дизайн:** Использует structural subtyping — любой класс с нужными атрибутами и методом `run()` автоматически удовлетворяет протоколу
 
 - **`SagaInput`** — базовый класс для входных данных
   - Все pipeline-специфичные Input классы наследуют от неё
@@ -144,13 +139,14 @@ python src/main/main.py
 3. **Реализовать шаги** (`steps.py`):
    ```python
    from dataclasses import dataclass
-   from fsm.core import RunContext, StepAction
+   from fsm.core import RunContext
 
    @dataclass(slots=True)
-   class MyStep(StepAction[MyInput, MyData]):
+   class MyStep:
        id = "my_step"
+       desc = "Process input data"
        
-       async def run(self, ctx: RunContext[MyInput, MyData]) -> None:
+       async def run(self, ctx: RunContext) -> None:
            ctx.data.processed = ctx.input.raw_data.upper()
    ```
 

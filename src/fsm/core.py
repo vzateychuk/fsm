@@ -34,15 +34,6 @@ class SagaStep(Generic[TIn, TData], Protocol):
         ...
 
 
-@dataclass(slots=True)
-class StepAction(Generic[TIn, TData], SagaStep[TIn, TData]):
-    """Абстрактный базовый класс для step action-ов (шаги pipeline), implements SagaStep"""
-
-    async def run(self, ctx: RunContext[TIn, TData]) -> None:
-        """Выполнить действие"""
-        raise NotImplementedError
-
-
 class SagaDefinition(Generic[TIn, TData]):
     """Определение саги"""
 
