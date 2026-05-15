@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import TypedDict
 
 from pydantic import Field
@@ -11,19 +12,20 @@ class IngestInput(SagaInput):
     source_path: str
 
 
-class MdToken(TypedDict, total=False):
+@dataclass(slots=True)
+class MdToken:
     """Markdown token from markdown-it-py parser
 
-    Fields:
-        type: token type (heading, paragraph, table, list, fence, etc.)
-        content: plain text content (inline markup removed)
-        level: heading level (1-6 for H1-H6)
-        markup: markup characters (e.g., '#' for headings)
+    Attributes:
+        type: token type (heading, paragraph, table, list, fence)
+        content: plain text content (inline markup removed, serialized if complex)
+        level: heading level (1-6 for H1-H6), 0 for other types
+        markup: markup hint (e.g., '#' for headings, language for fence)
     """
     type: str
     content: str
-    level: int
-    markup: str
+    level: int = 0
+    markup: str = ""
 
 
 class BlockEvent(TypedDict):

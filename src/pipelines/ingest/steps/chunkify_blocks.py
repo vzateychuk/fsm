@@ -21,24 +21,24 @@ class ChunkifyBlocks:
         section_path: list[str] = []
 
         for token in tokens:
-            if token["type"] == "heading":
-                level = token["level"]
+            if token.type == "heading":
+                level = token.level
                 # Trim path to correct depth
                 section_path = section_path[:level - 1]
-                section_path.append(token["content"].lstrip("#").strip())
+                section_path.append(token.content.lstrip("#").strip())
 
                 if level <= 2:
                     # Major heading — start new chunk
                     if current_chunk["content"]:
                         chunks.append(current_chunk)
                     current_chunk = {
-                        "heading": token["content"].lstrip("#").strip(),
+                        "heading": token.content.lstrip("#").strip(),
                         "section_path": " > ".join(section_path),
                         "content": [],
                         "tokens": [token]
                     }
             else:
-                current_chunk["content"].append(token["content"])
+                current_chunk["content"].append(token.content)
                 current_chunk["tokens"].append(token)
 
         if current_chunk["content"]:
