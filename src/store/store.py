@@ -1,4 +1,4 @@
-from typing import Optional, TypedDict, Protocol, Any
+from typing import Any, Protocol, TypedDict
 
 
 class SavedProgress(TypedDict):
@@ -13,7 +13,7 @@ class SavedProgress(TypedDict):
 class Store(Protocol):
     """Протокол хранилища"""
 
-    async def load(self, run_id: str) -> Optional[SavedProgress]:
+    async def load(self, run_id: str) -> SavedProgress | None:
         """Загрузить прогресс"""
         ...
 

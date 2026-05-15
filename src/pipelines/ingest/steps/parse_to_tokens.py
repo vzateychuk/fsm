@@ -1,9 +1,9 @@
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from fsm.core import RunContext
 from pipelines.ingest.guards import assert_md_body
-from pipelines.ingest.models import IngestInput, IngestData
+from pipelines.ingest.models import IngestData, IngestInput
 
 
 @dataclass(slots=True)
@@ -17,7 +17,7 @@ class ParseToTokens:
         ctx.data.desc = self.desc
         # Simple parser: each non-empty line is a token
         md_body = assert_md_body(ctx.data, self.id)
-        tokens = []
+        tokens: list[dict[str, Any]] = []
         for line in md_body.split("\n"):
             line = line.strip()
             if line:
@@ -27,5 +27,5 @@ class ParseToTokens:
                     "content": line,
                     "level": len(line) - len(line.lstrip("#")) if token_type == "heading" else 0
                 })
-        ctx.data.tokens = tokens
+        ctx.data.tokens = tokens  # type: ignore[assignment]
         ctx.data.desc = f"Parsed {len(tokens)} tokens"

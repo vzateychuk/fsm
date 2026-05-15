@@ -1,3 +1,3 @@
-from store.store import Store, SavedProgress
+from store.store import SavedProgress, Store
 
 __all__ = ["Store", "SavedProgress"]

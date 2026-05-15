@@ -1,14 +1,14 @@
-from pipelines.ingest.models import IngestInput, IngestData
+from pipelines.ingest.models import IngestData, IngestInput
 from pipelines.ingest.steps import (
-    LoadSource,
-    PreprocessText,
-    DetectTargetSchema,
-    SplitControlBlocks,
-    ParseToTokens,
     ChunkifyBlocks,
-    Tagging,
-    PersistDocument,
+    DetectTargetSchema,
+    LoadSource,
+    ParseToTokens,
     PersistChunks,
+    PersistDocument,
+    PreprocessText,
+    SplitControlBlocks,
+    Tagging,
     UpdateFTS,
 )
 

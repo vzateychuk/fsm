@@ -2,13 +2,12 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 
 def setup_logging(
     level: int = logging.INFO,
-    log_file: Optional[str] = None,
-    log_format: Optional[str] = None,
+    log_file: str | None = None,
+    log_format: str | None = None,
 ) -> None:
     """
     Настроить логирование в консоль и опционально в файл
@@ -30,12 +29,12 @@ def setup_logging(
         log_format = "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
 
     # Консоль
-    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler: logging.Handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level)
     console_handler.setFormatter(logging.Formatter(log_format))
 
     # Файл (опционально)
-    handlers = [console_handler]
+    handlers: list[logging.Handler] = [console_handler]
     if log_file:
         # Создать директорию если нужно
         log_path = Path(log_file)

@@ -1,23 +1,26 @@
 from dataclasses import dataclass
+from typing import Any, ClassVar
 
 from fsm.core import RunContext
-from pipelines.ingest.models import IngestInput, IngestData
+from pipelines.ingest.guards import assert_tokens
+from pipelines.ingest.models import IngestData, IngestInput
 
 
 @dataclass(slots=True)
 class ChunkifyBlocks:
     """S6: Group tokens into logical chunks with hierarchical section path"""
 
-    id = "chunkify_blocks"
-    desc = "Convert markdown blocks into atomic chunks with breadcrumb context for RAG"
+    id: ClassVar[str] = "chunkify_blocks"
+    desc: ClassVar[str] = "Convert markdown blocks into atomic chunks with breadcrumb context for RAG"
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = self.desc
-        chunks = []
-        current_chunk = {"heading": "", "section_path": "", "content": [], "tokens": []}
-        section_path = []
+        tokens = assert_tokens(ctx.data, self.id)
+        chunks: list[dict[str, Any]] = []
+        current_chunk: dict[str, Any] = {"heading": "", "section_path": "", "content": [], "tokens": []}
+        section_path: list[str] = []
 
-        for token in ctx.data.tokens:
+        for token in tokens:
             if token["type"] == "heading":
                 level = token["level"]
                 # Trim path to correct depth
@@ -41,5 +44,5 @@ class ChunkifyBlocks:
         if current_chunk["content"]:
             chunks.append(current_chunk)
 
-        ctx.data.chunks = chunks
+        ctx.data.chunks = chunks  # type: ignore[assignment]
         ctx.data.desc = f"Created {len(chunks)} chunks with breadcrumbs"

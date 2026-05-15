@@ -1,7 +1,8 @@
 import logging
-from typing import Generic, Optional, Callable, Awaitable
+from collections.abc import Awaitable, Callable
+from typing import Generic
 
-from fsm.core import RunContext, SagaDefinition, TIn, TData
+from fsm.core import RunContext, SagaDefinition, TData, TIn
 
 StepCallback = Callable[[int, RunContext[TIn, TData]], Awaitable[None]]
 
@@ -13,8 +14,8 @@ class Saga(Generic[TIn, TData]):
     def __init__(
         self,
         definition: SagaDefinition[TIn, TData],
-        pre_step_callback: Optional[Callable[[int, RunContext[TIn, TData]], Awaitable[None]]] = None,
-        post_step_callback: Optional[Callable[[int, RunContext[TIn, TData]], Awaitable[None]]] = None,
+        pre_step_callback: Callable[[int, RunContext[TIn, TData]], Awaitable[None]] | None = None,
+        post_step_callback: Callable[[int, RunContext[TIn, TData]], Awaitable[None]] | None = None,
     ) -> None:
         self._def = definition
         self._pre_step_callback = pre_step_callback

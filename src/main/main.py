@@ -10,17 +10,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from commons import setup_logging
 from fsm.core import SagaDefinition
 from fsm.saga_runner import SagaRunner
-from pipelines.ingest.models import IngestInput, IngestData
+from pipelines.ingest.models import IngestData, IngestInput
 from pipelines.ingest.steps import (
-    LoadSource,
-    PreprocessText,
-    DetectTargetSchema,
-    SplitControlBlocks,
-    ParseToTokens,
     ChunkifyBlocks,
-    Tagging,
-    PersistDocument,
+    DetectTargetSchema,
+    LoadSource,
+    ParseToTokens,
     PersistChunks,
+    PersistDocument,
+    PreprocessText,
+    SplitControlBlocks,
+    Tagging,
     UpdateFTS,
 )
 from store.inmem.inmemory_store import InMemoryStore

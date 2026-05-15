@@ -1,17 +1,18 @@
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
+from typing import ClassVar
 
 from fsm.core import RunContext
-from pipelines.ingest.models import IngestInput, IngestData
+from pipelines.ingest.models import IngestData, IngestInput
 
 
 @dataclass(slots=True)
 class LoadSource:
     """S1: Load markdown file from source path"""
 
-    id = "load_source"
-    desc = "Load markdown file from source"
+    id: ClassVar[str] = "load_source"
+    desc: ClassVar[str] = "Load markdown file from source"
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = self.desc

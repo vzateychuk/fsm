@@ -1,9 +1,9 @@
 import logging
 from typing import Generic
 
-from fsm.core import RunContext, SagaDefinition, TIn, TData
+from fsm.core import RunContext, SagaDefinition, TData, TIn
 from fsm.saga import Saga
-from store.store import Store, SavedProgress
+from store.store import SavedProgress, Store
 
 logger = logging.getLogger(__name__)
 

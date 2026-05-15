@@ -1,4 +1,4 @@
-from typing import Generic, Protocol, TypeVar
+from typing import ClassVar, Generic, Protocol, TypeVar
 
 from pydantic import BaseModel
 
@@ -28,14 +28,14 @@ class SagaStep(Generic[TIn, TData], Protocol):
     """Interface/Протокол для шага саги
 
     Контракт:
-    - id: str — уникальный идентификатор шага (обязателен, используется для логирования и отладки)
-    - desc: str | None — опциональное описание шага
+    - id: ClassVar[str] — уникальный идентификатор шага (обязателен, используется для логирования и отладки)
+    - desc: ClassVar[str] — описание шага для логирования
     - run() — асинхронный метод выполнения шага
     """
 
-    id: str  # Обязателен - не может быть None или пустым
+    id: ClassVar[str]
 
-    desc: str | None = ""  # Опционально с дефолтом
+    desc: ClassVar[str]
 
     async def run(self, ctx: RunContext[TIn, TData]) -> None:
         """Выполнить шаг"""

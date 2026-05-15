@@ -1,0 +1,90 @@
+"""Field guards and invariant checks — ensures data contract is maintained."""
+
+from typing import Any
+
+from pipelines.ingest.models import IngestData
+
+# Invariant contract from Phase 0.1
+INVARIANTS: dict[str, list[str]] = {
+    "load_source": ["raw_content"],
+    "preprocess_text": ["raw_content", "file_hash"],
+    "detect_target_schema": ["target_schema"],
+    "split_control_blocks": ["metadata_block", "md_body"],
+    "parse_to_tokens": ["tokens"],
+    "chunkify_blocks": ["chunks"],
+    "tagging": ["tagged_chunks"],
+    "persist_document": ["document_id"],
+    "persist_chunks": ["chunk_ids"],
+    "update_fts": ["fts_updated"],
+}
+
+
+def assert_field(value: Any, field_name: str, required_by_step: str) -> None:
+    """Raise RuntimeError if value is None, indicating missing dependency."""
+    if value is None:
+        raise RuntimeError(
+            f"Field '{field_name}' is None. "
+            f"This step requires it to be filled by '{required_by_step}' first."
+        )
+
+
+def assert_raw_content(ctx_data: IngestData, current_step: str) -> str:
+    """Ensure raw_content is available; raise if missing."""
+    assert_field(ctx_data.raw_content, "raw_content", "LoadSource")
+    assert ctx_data.raw_content is not None
+    return ctx_data.raw_content
+
+
+def assert_md_body(ctx_data: IngestData, current_step: str) -> str:
+    """Ensure md_body is available; raise if missing."""
+    assert_field(ctx_data.md_body, "md_body", "SplitControlBlocks")
+    assert ctx_data.md_body is not None
+    return ctx_data.md_body
+
+
+def assert_file_hash(ctx_data: IngestData, current_step: str) -> str:
+    """Ensure file_hash is available; raise if missing."""
+    assert_field(ctx_data.file_hash, "file_hash", "PreprocessText")
+    assert ctx_data.file_hash is not None
+    return ctx_data.file_hash
+
+
+def assert_tokens(ctx_data: IngestData, current_step: str) -> list[Any]:
+    """Ensure tokens list is available; raise if missing."""
+    assert_field(ctx_data.tokens, "tokens", "ParseToTokens")
+    assert ctx_data.tokens is not None
+    return ctx_data.tokens
+
+
+def assert_chunks(ctx_data: IngestData, current_step: str) -> list[Any]:
+    """Ensure chunks list is available; raise if missing."""
+    assert_field(ctx_data.chunks, "chunks", "ChunkifyBlocks")
+    assert ctx_data.chunks is not None
+    return ctx_data.chunks
+
+
+def assert_invariants(data: IngestData, after_step: str) -> None:
+    """
+    Validate data contract after a step completes.
+
+    Checks that all fields required by the step are non-None.
+    Called in debug/test mode only — not in production.
+
+    Args:
+        data: IngestData object
+        after_step: step id (e.g., "load_source", "preprocess_text")
+
+    Raises:
+        AssertionError if any required field is None
+    """
+    if after_step not in INVARIANTS:
+        return  # Unknown step, skip check
+
+    required_fields = INVARIANTS[after_step]
+    for field_name in required_fields:
+        value = getattr(data, field_name, None)
+        if value is None or (isinstance(value, (list, str)) and not value):
+            raise AssertionError(
+                f"After step '{after_step}': field '{field_name}' is empty/None. "
+                f"This violates the data contract."
+            )

@@ -1,11 +1,11 @@
 from fsm.core import (
     RunContext,
-    SagaStep,
     SagaDefinition,
-    TIn,
+    SagaStep,
     TData,
+    TIn,
 )
-from fsm.models import SagaInput, SagaData
+from fsm.models import SagaData, SagaInput
 from fsm.saga import Saga
 from fsm.saga_runner import SagaRunner
 

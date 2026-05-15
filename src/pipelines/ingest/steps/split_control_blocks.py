@@ -3,7 +3,7 @@ from typing import ClassVar
 
 from fsm.core import RunContext
 from pipelines.ingest.guards import assert_raw_content
-from pipelines.ingest.models import IngestInput, IngestData
+from pipelines.ingest.models import IngestData, IngestInput
 
 
 @dataclass(slots=True)

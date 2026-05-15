@@ -1,6 +1,8 @@
 from typing import TypedDict
-from fsm.models import SagaInput, SagaData
+
 from pydantic import Field
+
+from fsm.models import SagaData, SagaInput
 
 
 class IngestInput(SagaInput):
