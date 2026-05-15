@@ -167,6 +167,7 @@ tags_text_contains:
 *Результат:* спека зафиксирована; `main.py` в Phase 1 реализует батч-запуск по этому контракту (заменяет текущий hardcoded sample).
 
 **Проверка:** `INGEST_DIR=tests/fixtures/ingest python src/main/main.py` — pipeline отрабатывает на всех fixture-файлах; файлы с ожидаемыми ошибками (`no_schema_id.md`) логируются как skipped, батч не прерывается.
+``
 
 ---
 
@@ -329,7 +330,7 @@ Coarse-ожидания: `raw_content` не пустой, `tokens` не пуст
 После Phase 5 pipeline производит полный набор артефактов extraction: `tokens`, `block_events`, `chunks` с kind/section_path, `tagged_chunks` с `tags_text`. Persistence на этом этапе — InMemoryStore (заглушки S8–S10).
 
 **Что проверить перед переходом к Phase 6:**
-- Прогнать все fixture-документы, сверить с эталонными JSON.
+- Прогнать все fixture-документы, сверить с эталонными YAML.
 - Убедиться, что `section_path` корректны для реальных медицинских документов.
 - Убедиться, что `kind`-классификация адекватна (особенно `fact` для `**Label**:`).
 - Оценить качество `tags_text`: есть ли нужные термины, нет ли шума.

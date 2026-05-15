@@ -7,7 +7,7 @@ from pathlib import Path
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from commons import setup_logging
+from common import setup_logging
 from fsm.core import SagaDefinition
 from fsm.saga_runner import SagaRunner
 from pipelines.ingest.models import IngestData, IngestInput

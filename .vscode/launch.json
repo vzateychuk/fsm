@@ -23,5 +23,18 @@
       "console": "integratedTerminal",
       "justMyCode": false
     },
+    {
+      "name": "test_markdown_id.py",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": [
+        "${workspaceFolder}\\tests\\parsers\\test_markdown_it.py",
+        "-v"
+      ],
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd":"${workspaceFolder}",
+    },
   ]
 }

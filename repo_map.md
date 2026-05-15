@@ -13,12 +13,11 @@
 ## COMMANDS
 | TASK       | COMMAND           | NOTES |
 |------------|-------------------|-------|
-| run        | python src/main/main.py | Runs ingest pipeline; reads INGEST_FILE env |
-| test       | pytest            | asyncio_mode = auto; testpaths = tests/ |
-| lint       | ruff check src/   | select E,F,I,B,UP; line-length 100 |
-| type-check | mypy src/         | strict mode; python_version 3.11 |
+| test       | pytest            | configured: asyncio_mode=auto, testpaths=tests/ |
+| lint       | ruff check src/   | configured: select E,F,I,B,UP; line-length 100 |
+| type-check | mypy src/         | configured: strict=true, python_version 3.11 |
 
-*(Only explicitly declared commands from pyproject.toml and README)*
+*(No [project.scripts] declared. Commands above are dev-tool invocations configured in [tool.*] sections of pyproject.toml.)*
 
 ---
 

@@ -4,255 +4,175 @@ Converts markdown-it block tokens to structured MdToken list.
 Handles: heading, paragraph, table, list, fence (code block).
 """
 
+from collections.abc import Callable
+
 from markdown_it import MarkdownIt
+from markdown_it.token import Token
 
 from pipelines.ingest.models import MdToken
+
+_HandlerFn = Callable[[int, list[Token]], tuple[int, MdToken | None]]
+
+
+def _extract_inline_text(inline_token: Token) -> str:
+    """Extract plain-text content from inline token, removing markup.
+
+    Handles: text, softbreak, hardbreak, code_inline.
+    Skips: em_open/close, strong_open/close, link_open/close, image, etc.
+    Link text is preserved via child text nodes.
+    """
+    if not inline_token.children:
+        return inline_token.content
+
+    parts: list[str] = []
+    for child in inline_token.children:
+        if child.type == "text":
+            parts.append(child.content)
+        elif child.type in ("softbreak", "hardbreak"):
+            parts.append(" ")
+        elif child.type == "code_inline":
+            parts.append(child.content)
+
+    return "".join(parts).strip()
+
+
+def _collect_inline(block_tokens: list[Token], start: int, close_type: str) -> tuple[str, int]:
+    """Walk from start+1 to close_type, join inline text, return (text, next_i).
+
+    next_i points to the token after close_type.
+    """
+    parts: list[str] = []
+    i = start + 1
+    while i < len(block_tokens) and block_tokens[i].type != close_type:
+        if block_tokens[i].type == "inline":
+            parts.append(_extract_inline_text(block_tokens[i]))
+        i += 1
+    return " ".join(parts), i + 1  # +1 skips the close token
+
+
+def _collect_row(block_tokens: list[Token], i: int) -> tuple[list[str], int]:
+    """Walk from i to tr_close, collecting one cell text per th/td pair.
+
+    i must point to the token immediately after tr_open.
+    Returns (cells, next_i) where next_i is the token after tr_close.
+    """
+    cells: list[str] = []
+    while i < len(block_tokens) and block_tokens[i].type != "tr_close":
+        t = block_tokens[i].type
+        if t in ("th_open", "td_open"):
+            close = "th_close" if t == "th_open" else "td_close"
+            text, i = _collect_inline(block_tokens, i, close)
+            cells.append(text)
+        else:
+            i += 1
+    return cells, i + 1  # +1 skips tr_close
+
+
+def _parse_heading(i: int, block_tokens: list[Token]) -> tuple[int, MdToken | None]:
+    level = int(block_tokens[i].tag[1])  # h1 -> 1, h2 -> 2, etc.
+    content, next_i = _collect_inline(block_tokens, i, "heading_close")
+    return next_i, MdToken(type="heading", content=content, level=level, markup="#" * level)
+
+
+def _parse_paragraph(i: int, block_tokens: list[Token]) -> tuple[int, MdToken | None]:
+    content, next_i = _collect_inline(block_tokens, i, "paragraph_close")
+    return next_i, MdToken(type="paragraph", content=content) if content else None
+
+
+def _parse_table(i: int, block_tokens: list[Token]) -> tuple[int, MdToken | None]:
+    rows: list[str] = []
+    i += 1  # skip table_open
+    while i < len(block_tokens) and block_tokens[i].type != "table_close":
+        if block_tokens[i].type == "tr_open":
+            cells, i = _collect_row(block_tokens, i + 1)
+            if cells:
+                rows.append(" | ".join(cells))
+        else:
+            i += 1
+    i += 1  # skip table_close
+    return i, MdToken(type="table", content="\n".join(rows)) if rows else None
+
+
+def _collect_list_item(block_tokens: list[Token], i: int) -> tuple[str, int]:
+    """Collect all inline text from a single list_item.
+
+    Walks from i (at list_item_open) to list_item_close.
+    Collects inline text from paragraphs; skips nested lists entirely.
+    Returns (item_text, next_i) where next_i is after list_item_close.
+    """
+    parts: list[str] = []
+    i += 1  # skip list_item_open
+
+    while i < len(block_tokens) and block_tokens[i].type != "list_item_close":
+        t = block_tokens[i].type
+        if t == "inline":
+            parts.append(_extract_inline_text(block_tokens[i]))
+        elif t in ("bullet_list_open", "ordered_list_open"):
+            close_type = "bullet_list_close" if t == "bullet_list_open" else "ordered_list_close"
+            while i < len(block_tokens) and block_tokens[i].type != close_type:
+                i += 1
+            i += 1  # skip list_close
+            continue
+        i += 1
+
+    return " ".join(parts), i + 1  # +1 skips list_item_close
+
+
+def _parse_list(i: int, block_tokens: list[Token]) -> tuple[int, MdToken | None]:
+    close_type = "bullet_list_close" if block_tokens[i].type == "bullet_list_open" else "ordered_list_close"
+    items: list[str] = []
+    i += 1  # skip list_open
+
+    while i < len(block_tokens) and block_tokens[i].type != close_type:
+        if block_tokens[i].type == "list_item_open":
+            text, i = _collect_list_item(block_tokens, i)
+            if text:
+                items.append(f"- {text}")
+        else:
+            i += 1
+
+    return i + 1, MdToken(type="list", content="\n".join(items)) if items else None
+
+
+def _parse_fence(i: int, block_tokens: list[Token]) -> tuple[int, MdToken | None]:
+    token = block_tokens[i]
+    content = token.content.strip() if token.content else ""
+    lang = token.info.strip() if token.info else ""
+    return i + 1, MdToken(type="fence", content=content, markup=lang) if content else None
+
+
+_BLOCK_HANDLERS: dict[str, _HandlerFn] = {
+    "heading_open": _parse_heading,
+    "paragraph_open": _parse_paragraph,
+    "table_open": _parse_table,
+    "bullet_list_open": _parse_list,
+    "ordered_list_open": _parse_list,
+    "fence": _parse_fence,
+}
 
 
 def parse_markdown_to_tokens(md_body: str) -> list[MdToken]:
     """Parse markdown body to structured tokens using markdown-it-py.
 
     Args:
-        md_body: Markdown text to parse
+        md_body: Markdown text to parse.
 
     Returns:
-        List of MdToken with type, content, level, markup extracted
+        List of MdToken with type, content, level, and markup extracted.
     """
-    md = MarkdownIt()
+    md = MarkdownIt().enable("table")
     block_tokens = md.parse(md_body)
     tokens: list[MdToken] = []
     i = 0
 
     while i < len(block_tokens):
-        token = block_tokens[i]
-
-        if token.type == "heading_open":
-            new_i, md_token = _parse_heading(i, block_tokens)
+        handler = _BLOCK_HANDLERS.get(block_tokens[i].type)
+        if handler:
+            next_i, md_token = handler(i, block_tokens)
             if md_token:
                 tokens.append(md_token)
-            i = new_i
-
-        elif token.type == "paragraph_open":
-            new_i, md_token = _parse_paragraph(i, block_tokens)
-            if md_token:
-                tokens.append(md_token)
-            i = new_i
-
-        elif token.type == "table_open":
-            new_i, md_token = _parse_table(i, block_tokens)
-            if md_token:
-                tokens.append(md_token)
-            i = new_i
-
-        elif token.type in ("bullet_list_open", "ordered_list_open"):
-            new_i, md_token = _parse_list(i, block_tokens)
-            if md_token:
-                tokens.append(md_token)
-            i = new_i
-
-        elif token.type == "fence":
-            new_i, md_token = _parse_fence(i, block_tokens)
-            if md_token:
-                tokens.append(md_token)
-            i = new_i
-
+            i = next_i
         else:
             i += 1
 
     return tokens
-
-
-def _parse_heading(i: int, block_tokens: list) -> tuple[int, MdToken | None]:
-    """Parse heading_open ... heading_close block.
-
-    Args:
-        i: Index of heading_open token
-        block_tokens: List of all block tokens
-
-    Returns:
-        (next_index, MdToken) or (next_index, None) if empty
-    """
-    token = block_tokens[i]
-    level = int(token.tag[1])  # h1 -> 1, h2 -> 2, etc.
-    content_parts = []
-    j = i + 1
-
-    # Collect all inline content until heading_close
-    while j < len(block_tokens) and block_tokens[j].type != "heading_close":
-        if block_tokens[j].type == "inline":
-            content_parts.append(_extract_inline_text(block_tokens[j]))
-        j += 1
-
-    content = " ".join(content_parts)
-    markup = "#" * level
-
-    # Skip to heading_close and move past it
-    while i < len(block_tokens) and block_tokens[i].type != "heading_close":
-        i += 1
-    i += 1
-
-    return i, MdToken(type="heading", content=content, level=level, markup=markup)
-
-
-def _parse_paragraph(i: int, block_tokens: list) -> tuple[int, MdToken | None]:
-    """Parse paragraph_open ... paragraph_close block.
-
-    Args:
-        i: Index of paragraph_open token
-        block_tokens: List of all block tokens
-
-    Returns:
-        (next_index, MdToken) or (next_index, None) if empty
-    """
-    content_parts = []
-    j = i + 1
-
-    # Collect all inline content until paragraph_close
-    while j < len(block_tokens) and block_tokens[j].type != "paragraph_close":
-        if block_tokens[j].type == "inline":
-            content_parts.append(_extract_inline_text(block_tokens[j]))
-        j += 1
-
-    content = " ".join(content_parts)
-
-    # Skip to paragraph_close and move past it
-    while i < len(block_tokens) and block_tokens[i].type != "paragraph_close":
-        i += 1
-    i += 1
-
-    return i, MdToken(type="paragraph", content=content) if content else (i, None)
-
-
-def _parse_table(i: int, block_tokens: list) -> tuple[int, MdToken | None]:
-    """Parse table_open ... table_close block.
-
-    Collects rows and cells, preserving structure as pipe-separated columns.
-    Handles th (header) and td (data) cells correctly.
-
-    Args:
-        i: Index of table_open token
-        block_tokens: List of all block tokens
-
-    Returns:
-        (next_index, MdToken) or (next_index, None) if no rows
-    """
-    table_rows = []
-    i += 1
-
-    while i < len(block_tokens) and block_tokens[i].type != "table_close":
-        if block_tokens[i].type == "tr_open":
-            row_cells = []
-            i += 1
-
-            while i < len(block_tokens) and block_tokens[i].type != "tr_close":
-                if block_tokens[i].type == "th_open":
-                    # Collect cell content until th_close
-                    cell_parts = []
-                    i += 1
-                    while i < len(block_tokens) and block_tokens[i].type != "th_close":
-                        if block_tokens[i].type == "inline":
-                            cell_parts.append(_extract_inline_text(block_tokens[i]))
-                        i += 1
-                    row_cells.append(" ".join(cell_parts))
-                    i += 1  # Skip th_close
-
-                elif block_tokens[i].type == "td_open":
-                    # Collect cell content until td_close
-                    cell_parts = []
-                    i += 1
-                    while i < len(block_tokens) and block_tokens[i].type != "td_close":
-                        if block_tokens[i].type == "inline":
-                            cell_parts.append(_extract_inline_text(block_tokens[i]))
-                        i += 1
-                    row_cells.append(" ".join(cell_parts))
-                    i += 1  # Skip td_close
-
-                else:
-                    i += 1
-
-            if row_cells:
-                table_rows.append(" | ".join(row_cells))
-            i += 1  # Skip tr_close
-        else:
-            i += 1
-
-    i += 1  # Skip table_close
-
-    return i, MdToken(type="table", content="\n".join(table_rows)) if table_rows else (i, None)
-
-
-def _parse_list(i: int, block_tokens: list) -> tuple[int, MdToken | None]:
-    """Parse bullet_list_open/ordered_list_open ... *_list_close block.
-
-    Args:
-        i: Index of *_list_open token
-        block_tokens: List of all block tokens
-
-    Returns:
-        (next_index, MdToken) or (next_index, None) if empty
-    """
-    token = block_tokens[i]
-    is_bullet = token.type == "bullet_list_open"
-    close_type = "bullet_list_close" if is_bullet else "ordered_list_close"
-    list_content = []
-    i += 1
-
-    while i < len(block_tokens) and block_tokens[i].type != close_type:
-        if block_tokens[i].type == "inline":
-            item_text = _extract_inline_text(block_tokens[i])
-            if item_text:
-                list_content.append(f"- {item_text}")
-        i += 1
-
-    i += 1  # Skip list_close
-
-    return i, MdToken(type="list", content="\n".join(list_content)) if list_content else (i, None)
-
-
-def _parse_fence(i: int, block_tokens: list) -> tuple[int, MdToken | None]:
-    """Parse fence (code block) token.
-
-    Args:
-        i: Index of fence token
-        block_tokens: List of all block tokens
-
-    Returns:
-        (next_index, MdToken) or (next_index, None) if empty
-    """
-    token = block_tokens[i]
-    content = token.content.strip() if token.content else ""
-    lang = token.info.strip() if token.info else ""
-
-    i += 1
-
-    return i, MdToken(type="fence", content=content, markup=lang) if content else (i, None)
-
-
-def _extract_inline_text(inline_token) -> str:
-    """Extract plain-text content from inline token, removing markup.
-
-    Handles: text, softbreak, hardbreak, code_inline.
-    Skips: markup tokens (em_open, strong_open, link_open, image, etc.)
-    Link text is preserved via child text nodes.
-
-    Args:
-        inline_token: Inline token from markdown-it
-
-    Returns:
-        Plain text content without formatting markup
-    """
-    if not inline_token or not inline_token.children:
-        return inline_token.content if inline_token else ""
-
-    text_parts = []
-    for child in inline_token.children:
-        if child.type == "text":
-            text_parts.append(child.content)
-        elif child.type in ("softbreak", "hardbreak"):
-            text_parts.append(" ")
-        elif child.type == "code_inline":
-            text_parts.append(child.content)
-        # Skip: em_open/close, strong_open/close, link_open/close, image, etc.
-        # Link text already captured in child text nodes
-
-    return "".join(text_parts).strip()
