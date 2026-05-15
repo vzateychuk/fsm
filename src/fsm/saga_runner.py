@@ -39,14 +39,12 @@ class SagaRunner(Generic[TIn, TData]):
         async def pre_step(step_idx: int, run_ctx: RunContext[TIn, TData]) -> None:
             step = self._def.steps[step_idx]
             step_desc = getattr(step, "desc", None) or "No description"
-            logger.info(
-                f"Executing step {step_idx}: '{step.id}' ({step_desc})"
-            )
-            logger.debug(f"Step input: {run_ctx.input}")
-            # logger.trace(f"Step data before: {run_ctx.data}")
+            logger.info(f"Pre-step {step_idx}: '{step.id}' ({step_desc})")
 
         async def post_step(step_idx: int, run_ctx: RunContext[TIn, TData]) -> None:
-            # logger.debug(f"Step data after: {run_ctx.data}")
+            step = self._def.steps[step_idx]
+            step_desc = getattr(step, "desc", None) or "No description"
+            logger.info(f"Post-step {step_idx}: '{step.id}' ({step_desc})")
 
             # Сохранить данные после шага
             data_type_name = type(run_ctx.data).__name__

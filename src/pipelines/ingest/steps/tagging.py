@@ -12,7 +12,7 @@ class Tagging:
     desc = "Extract meaningful terms for FTS boosting"
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
-        ctx.data.desc = "Tagging chunks"
+        ctx.data.desc = self.desc
         tagged_chunks = []
 
         for chunk in ctx.data.chunks:

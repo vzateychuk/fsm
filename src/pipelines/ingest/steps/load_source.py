@@ -14,7 +14,7 @@ class LoadSource:
     desc = "Load markdown file from source"
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
-        ctx.data.desc = "Loading document from source"
+        ctx.data.desc = self.desc
         try:
             text = await asyncio.to_thread(Path(ctx.input.source_path).read_text, encoding="utf-8")
             ctx.data.raw_content = text

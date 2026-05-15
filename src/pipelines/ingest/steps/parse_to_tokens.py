@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from typing import ClassVar
 
 from fsm.core import RunContext
+from pipelines.ingest.guards import assert_md_body
 from pipelines.ingest.models import IngestInput, IngestData
 
 
@@ -8,14 +10,15 @@ from pipelines.ingest.models import IngestInput, IngestData
 class ParseToTokens:
     """S5: Parse markdown body to tokens"""
 
-    id = "parse_to_tokens"
-    desc = "Parse markdown to tokens for stable chunking"
+    id: ClassVar[str] = "parse_to_tokens"
+    desc: ClassVar[str] = "Parse markdown to tokens for stable chunking"
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
-        ctx.data.desc = "Parsing markdown to tokens"
+        ctx.data.desc = self.desc
         # Simple parser: each non-empty line is a token
+        md_body = assert_md_body(ctx.data, self.id)
         tokens = []
-        for line in ctx.data.md_body.split("\n"):
+        for line in md_body.split("\n"):
             line = line.strip()
             if line:
                 token_type = "heading" if line.startswith("#") else "paragraph"

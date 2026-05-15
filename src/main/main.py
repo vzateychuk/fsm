@@ -60,7 +60,7 @@ async def main() -> None:
     logger.info("===> Before run <===")
 
     # Load sample document from file system
-    ingest_file = Path(os.getenv("INGEST_FILE", "tests/fixtures/ingest/consultation_deep.md"))
+    ingest_file = Path(os.getenv("INGEST_FILE", "tests/fixtures/ingest/consultation_deep.md")).absolute()
 
     if not ingest_file.exists():
         logger.error(f"Document file not found: {ingest_file}")

@@ -12,7 +12,7 @@ class PersistDocument:
     desc = "Save document metadata to database"
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
-        ctx.data.desc = "Persisting document metadata"
+        ctx.data.desc = self.desc
         # Simulation: generate ID based on hash
         ctx.data.document_id = ctx.data.file_hash[:16]
         ctx.data.desc = f"Document persisted with ID: {ctx.data.document_id}"

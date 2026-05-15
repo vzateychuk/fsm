@@ -12,7 +12,7 @@ class UpdateFTS:
     desc = "Update FTS5 search index"
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
-        ctx.data.desc = "Updating FTS5 index"
+        ctx.data.desc = self.desc
         # Simulation: mark FTS as updated
         ctx.data.fts_updated = True
         ctx.data.desc = f"FTS5 index updated with {len(ctx.data.chunk_ids)} entries"

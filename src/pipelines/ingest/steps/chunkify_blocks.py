@@ -12,7 +12,7 @@ class ChunkifyBlocks:
     desc = "Convert markdown blocks into atomic chunks with breadcrumb context for RAG"
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
-        ctx.data.desc = "Chunkifying blocks with section paths"
+        ctx.data.desc = self.desc
         chunks = []
         current_chunk = {"heading": "", "section_path": "", "content": [], "tokens": []}
         section_path = []

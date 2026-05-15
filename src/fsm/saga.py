@@ -1,9 +1,11 @@
+import logging
 from typing import Generic, Optional, Callable, Awaitable
 
 from fsm.core import RunContext, SagaDefinition, TIn, TData
 
 StepCallback = Callable[[int, RunContext[TIn, TData]], Awaitable[None]]
 
+logger = logging.getLogger(__name__)
 
 class Saga(Generic[TIn, TData]):
     """Stateless executor саги - выполняет pipeline шаги"""
@@ -32,6 +34,7 @@ class Saga(Generic[TIn, TData]):
                 await self._pre_step_callback(i, ctx)
 
             # Выполнить шаг
+            logger.debug(f"Executing step '{step.id}'")
             await step.run(ctx)
 
             # Обновить cursor перед post-step callback для консистентного checkpoint
