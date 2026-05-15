@@ -35,8 +35,8 @@ async def main() -> None:
     logger = logging.getLogger(__name__)
 
     # Print log location info
-    print(f"[INFO] Logs directory: {os.path.abspath(os.path.dirname(log_file))}")
-    print(f"[INFO] Log file: {os.path.abspath(log_file)}")
+    logger.info(f"[INFO] Logs directory: {os.path.abspath(os.path.dirname(log_file))}")
+    logger.info(f"[INFO] Log file: {os.path.abspath(log_file)}")
 
     definition = SagaDefinition[IngestInput, IngestData](
         name="ingest",

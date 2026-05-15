@@ -5,6 +5,8 @@
 .data
 .codemie
 .idea/
+.run/
+
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
