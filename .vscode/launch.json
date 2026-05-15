@@ -14,7 +14,12 @@
       "type": "debugpy",
       "request": "launch",
       "module": "main.main",
-      "args": ["LOG_FILE", "${workspaceFolder}/logs/ingest.log"],
+      "env": {
+        "INGEST_FILE": "${workspaceFolder}/tests/fixtures/ingest/with_table.md"
+      },
+      "args": [
+        "LOG_FILE", "${workspaceFolder}/logs/ingest.log",
+      ],
       "console": "integratedTerminal",
       "justMyCode": false
     },
