@@ -74,9 +74,51 @@ def _parse_heading(i: int, block_tokens: list[Token]) -> tuple[int, MdToken | No
     return next_i, MdToken(type="heading", content=content, level=level, markup="#" * level)
 
 
+def _is_fact_paragraph(inline_token: Token) -> bool:
+    """Return True if paragraph starts with **label**: pattern.
+
+    Checks child sequence: strong_open -> (text...) -> strong_close -> text(starts with ":")
+    Skips whitespace-only text nodes at beginning and between strong_close and colon.
+    Label max 120 chars to avoid false positives on malformed markup.
+    """
+    children = inline_token.children or []
+    if len(children) < 3:
+        return False
+
+    # Find first strong_open, skipping initial whitespace-only text nodes
+    open_idx = next((idx for idx, c in enumerate(children) if c.type == "strong_open"), -1)
+    if open_idx < 0:
+        return False
+
+    close_idx = next((idx for idx, c in enumerate(children[open_idx + 1:], open_idx + 1) if c.type == "strong_close"), -1)
+    if close_idx < 0 or close_idx <= open_idx:
+        return False
+
+    label = "".join(c.content for c in children[open_idx + 1:close_idx] if c.type == "text").strip()
+    if not label or len(label) > 120:
+        return False
+
+    for child in children[close_idx + 1:]:
+        if child.type == "text":
+            stripped = child.content.lstrip()
+            if stripped.startswith(":"):
+                return True
+            if child.content.strip():
+                return False
+    return False
+
+
 def _parse_paragraph(i: int, block_tokens: list[Token]) -> tuple[int, MdToken | None]:
+    inline_tok = (
+        block_tokens[i + 1]
+        if i + 1 < len(block_tokens) and block_tokens[i + 1].type == "inline"
+        else None
+    )
+    is_fact = _is_fact_paragraph(inline_tok) if inline_tok is not None else False
     content, next_i = _collect_inline(block_tokens, i, "paragraph_close")
-    return next_i, MdToken(type="paragraph", content=content) if content else None
+    if not content:
+        return next_i, None
+    return next_i, MdToken(type="paragraph", content=content, subtype="fact" if is_fact else "")
 
 
 def _parse_table(i: int, block_tokens: list[Token]) -> tuple[int, MdToken | None]:

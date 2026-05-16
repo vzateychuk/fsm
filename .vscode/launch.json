@@ -15,7 +15,7 @@
       "request": "launch",
       "module": "main.main",
       "env": {
-        "INGEST_FILE": "${workspaceFolder}/tests/fixtures/ingest/with_table.md"
+        "INGEST_FILE": "${workspaceFolder}/fsm/.data/ingest/2023-02-23_ecg.md"
       },
       "args": [
         "LOG_FILE", "${workspaceFolder}/logs/ingest.log",

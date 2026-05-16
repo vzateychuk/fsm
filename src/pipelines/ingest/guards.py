@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from pipelines.ingest.models import IngestData
+from pipelines.ingest.models import BlockEvent, ChunkBase, IngestData
 
 # Invariant contract from Phase 0.1
 INVARIANTS: dict[str, list[str]] = {
@@ -11,6 +11,7 @@ INVARIANTS: dict[str, list[str]] = {
     "detect_target_schema": ["target_schema"],
     "split_control_blocks": ["metadata_block", "md_body"],
     "parse_to_tokens": ["tokens"],
+    "build_section_path": ["block_events"],
     "chunkify_blocks": ["chunks"],
     "tagging": ["tagged_chunks"],
     "persist_document": ["document_id"],
@@ -56,7 +57,39 @@ def assert_tokens(ctx_data: IngestData, current_step: str) -> list[Any]:
     return ctx_data.tokens
 
 
-def assert_chunks(ctx_data: IngestData, current_step: str) -> list[Any]:
+def assert_block_events(ctx_data: IngestData, current_step: str) -> list[BlockEvent]:
+    """Ensure block_events list is available and valid; raise if missing or malformed.
+
+    Invariants:
+    - block_events is not None
+    - len(block_events) > 0 (non-empty; empty block_events → E_EMPTY_CHUNKS later)
+    - Each event has: token (non-heading), section_path (may be ""), heading (may be None)
+    - Order matches original non-heading blocks from tokens
+    """
+    assert_field(ctx_data.block_events, "block_events", "BuildSectionPath")
+    assert ctx_data.block_events is not None
+
+    if len(ctx_data.block_events) > len(ctx_data.tokens):
+        raise AssertionError(
+            f"block_events count {len(ctx_data.block_events)} > tokens count {len(ctx_data.tokens)}. "
+            f"BuildSectionPath should only emit non-heading tokens."
+        )
+
+    for i, event in enumerate(ctx_data.block_events):
+        if event.get("token") is None:
+            raise AssertionError(f"block_events[{i}] missing 'token' field")
+        if "section_path" not in event:
+            raise AssertionError(f"block_events[{i}] missing 'section_path' field")
+        if "heading" not in event:
+            raise AssertionError(f"block_events[{i}] missing 'heading' field")
+        # Verify token is not a heading (only non-heading tokens in block_events)
+        if event["token"].type == "heading":
+            raise AssertionError(f"block_events[{i}] contains heading token; only non-heading allowed")
+
+    return ctx_data.block_events
+
+
+def assert_chunks(ctx_data: IngestData, current_step: str) -> list[ChunkBase]:
     """Ensure chunks list is available; raise if missing."""
     assert_field(ctx_data.chunks, "chunks", "ChunkifyBlocks")
     assert ctx_data.chunks is not None

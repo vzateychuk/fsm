@@ -14,10 +14,13 @@ class PersistChunks:
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = self.desc
-        # Simulation: generate IDs for chunks
         if not ctx.data.document_id:
             raise RuntimeError("Field 'document_id' is None. This step requires it to be filled by 'PersistDocument' first.")
         if not ctx.data.tagged_chunks:
             raise RuntimeError("Field 'tagged_chunks' is None. This step requires it to be filled by 'Tagging' first.")
-        ctx.data.chunk_ids = [f"{ctx.data.document_id}_{i}" for i in range(len(ctx.data.tagged_chunks))]
-        ctx.data.desc = f"Persisted {len(ctx.data.chunk_ids)} chunks"
+        chunk_ids: list[str] = []
+        for i, chunk in enumerate(ctx.data.tagged_chunks):
+            chunk["chunk_no"] = i
+            chunk_ids.append(f"{ctx.data.document_id}_{i}")
+        ctx.data.chunk_ids = chunk_ids
+        ctx.data.desc = f"Persisted {len(chunk_ids)} chunks"

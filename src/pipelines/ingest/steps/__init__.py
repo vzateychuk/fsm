@@ -1,3 +1,4 @@
+from .build_section_path import BuildSectionPath
 from .chunkify_blocks import ChunkifyBlocks
 from .detect_target_schema import DetectTargetSchema
 from .load_source import LoadSource
@@ -15,6 +16,7 @@ __all__ = [
     "DetectTargetSchema",
     "SplitControlBlocks",
     "ParseToTokens",
+    "BuildSectionPath",
     "ChunkifyBlocks",
     "Tagging",
     "PersistDocument",

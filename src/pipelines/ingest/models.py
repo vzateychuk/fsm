@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from pydantic import Field
 
@@ -21,11 +21,13 @@ class MdToken:
         content: plain text content (inline markup removed, serialized if complex)
         level: heading level (1-6 for H1-H6), 0 for other types
         markup: markup hint (e.g., '#' for headings, language for fence)
+        subtype: semantic subtype; "fact" for paragraphs starting with **Label**: pattern
     """
     type: str
     content: str
     level: int = 0
     markup: str = ""
+    subtype: Literal["", "fact"] = ""
 
 
 class BlockEvent(TypedDict):
@@ -41,22 +43,23 @@ class BlockEvent(TypedDict):
     heading: str | None
 
 
-class Chunk(TypedDict):
-    """Chunk after ChunkifyBlocks and Tagging
+ChunkKind = Literal["section", "table", "list", "fact"]
 
-    Fields:
-        kind: semantic type (section, table, list, fact)
-        text: chunk text content
-        section_path: hierarchical breadcrumb
-        heading: parent heading or None
-        chunk_no: sequential number within document
-        tags_text: space-separated deduplicated tags
+
+class ChunkBase(TypedDict):
+    """Chunk produced by S6 ChunkifyBlocks.
+
+    chunk_no is NotRequired — assigned by S9 PersistChunks, not S6.
     """
-    kind: str
+    kind: ChunkKind
     text: str
     section_path: str
     heading: str | None
-    chunk_no: int
+    chunk_no: NotRequired[int]
+
+
+class ChunkTagged(ChunkBase):
+    """Chunk produced by S7 Tagging. Extends ChunkBase with tags_text."""
     tags_text: str
 
 
@@ -99,10 +102,10 @@ class IngestData(SagaData):
     block_events: list[BlockEvent] = Field(default_factory=list)
 
     # S6 ChunkifyBlocks
-    chunks: list[Chunk] = Field(default_factory=list)
+    chunks: list[ChunkBase] = Field(default_factory=list)
 
     # S7 Tagging
-    tagged_chunks: list[Chunk] = Field(default_factory=list)
+    tagged_chunks: list[ChunkTagged] = Field(default_factory=list)
 
     # S8 PersistDocument
     document_id: str | None = None

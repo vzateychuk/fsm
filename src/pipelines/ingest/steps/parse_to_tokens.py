@@ -3,7 +3,7 @@ from typing import ClassVar
 
 from fsm.core import RunContext
 from pipelines.ingest.guards import assert_md_body
-from pipelines.ingest.models import IngestData, IngestInput, IngestError
+from pipelines.ingest.models import IngestData, IngestError, IngestInput
 from pipelines.ingest.parsers.markdown_it import parse_markdown_to_tokens
 
 
@@ -27,4 +27,4 @@ class ParseToTokens:
             ctx.data.tokens = tokens
             ctx.data.desc = f"Parsed {len(tokens)} tokens"
         except Exception as e:
-            raise IngestError("E_MD_PARSE_FAIL", f"Markdown parsing failed: {e}")
+            raise IngestError("E_MD_PARSE_FAIL", f"Markdown parsing failed: {e}") from e

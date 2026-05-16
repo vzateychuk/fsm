@@ -4,7 +4,7 @@ from typing import ClassVar
 from common.utils.parsers import find_schema_id
 from fsm.core import RunContext
 from pipelines.ingest.guards import assert_raw_content
-from pipelines.ingest.models import IngestData, IngestInput, IngestError
+from pipelines.ingest.models import IngestData, IngestError, IngestInput
 
 
 @dataclass(slots=True)
