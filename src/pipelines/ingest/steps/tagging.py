@@ -2,18 +2,64 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from fsm.core import RunContext
+from pipelines.ingest.alias_map import ALIAS_MAP, is_stopword, is_unit
 from pipelines.ingest.guards import assert_chunks
 from pipelines.ingest.models import ChunkTagged, IngestData, IngestInput
+from pipelines.ingest.tokenizer import tokenize
 
-# Stub — populate in Phase 5
-_ALIAS_MAP: dict[str, list[str]] = {}
 
-_STOPWORDS = {"для", "при", "или", "что", "это", "как", "его", "ее", "её", "the", "and", "for", "with"}
+def _keep(token: str) -> bool:
+    """Check if token passes all filters: length, digits, units, stopwords, internal punct."""
+    from pipelines.ingest.tokenizer import _INVALID_CHARS
+
+    return (
+        len(token) >= 3
+        and not any(c.isdigit() for c in token)
+        and not is_unit(token)
+        and not is_stopword(token)
+        and not any(c in _INVALID_CHARS for c in token)
+    )
+
+
+def _build_tags(sources: list[str]) -> str:
+    filtered: list[str] = []
+    for source in sources:
+        for raw in tokenize(source):
+            if _keep(raw):
+                filtered.append(raw)
+
+    accumulated: list[str] = []
+    for token in filtered:
+        if "-" in token:
+            parts = [p for p in token.split("-") if p]
+            for p in parts + ["".join(parts)]:
+                if _keep(p):
+                    accumulated.append(p)
+        elif "/" in token:
+            parts = [p for p in token.split("/") if p]
+            for p in parts:
+                if _keep(p):
+                    accumulated.append(p)
+        else:
+            accumulated.append(token)
+
+    alias_extras: list[str] = []
+    for token in accumulated:
+        for alias in ALIAS_MAP.get(token, []):
+            if _keep(alias):
+                alias_extras.append(alias)
+
+    return " ".join(sorted(set(accumulated + alias_extras)))
 
 
 @dataclass(slots=True)
 class Tagging:
-    """S7: Tag chunks deterministically from section_path + heading."""
+    """S7: Build deterministic tags_text per chunk.
+
+    Pipeline: tokenize sources → filter (digits/units/stopwords/len) →
+    expand composites (hyphen/slash) → alias expansion → dedup+sort.
+    Sources: target_schema (doc_type), kind, section_path, heading.
+    """
 
     id: ClassVar[str] = "tagging"
     desc: ClassVar[str] = "Extract meaningful terms for FTS boosting"
@@ -21,34 +67,18 @@ class Tagging:
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = self.desc
         chunks = assert_chunks(ctx.data, self.id)
+        doc_type = ctx.data.target_schema or ""
         tagged_chunks: list[ChunkTagged] = []
 
         for chunk in chunks:
-            words: set[str] = set()
-            for part in (chunk.get("section_path") or "").split(" > "):
-                words.update(w.lower() for w in part.split() if w)
-            for w in (chunk.get("heading") or "").split():
-                words.add(w.lower())
-
-            filtered = sorted(
-                w for w in words
-                if len(w) > 2
-                and not any(c.isdigit() for c in w)
-                and w not in _STOPWORDS
-            )
-
-            expanded: list[str] = []
-            seen: set[str] = set()
-            for w in filtered:
-                if w not in seen:
-                    expanded.append(w)
-                    seen.add(w)
-                for alias in _ALIAS_MAP.get(w, []):
-                    if alias not in seen:
-                        expanded.append(alias)
-                        seen.add(alias)
-
-            tagged_chunks.append({**chunk, "tags_text": " ".join(expanded[:10])})
+            sources = [
+                doc_type,
+                chunk["kind"],
+                chunk["section_path"],
+                chunk["heading"] or "",
+            ]
+            tags_text = _build_tags(sources)
+            tagged_chunks.append({**chunk, "tags_text": tags_text})
 
         ctx.data.tagged_chunks = tagged_chunks
         ctx.data.desc = f"Tagged {len(tagged_chunks)} chunks"
