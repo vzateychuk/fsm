@@ -21,10 +21,12 @@ from pipelines.ingest.steps import (
     ParseToTokens,
     PersistChunks,
     PersistDocument,
+    PersistSourceFile,
     PreprocessText,
     SplitControlBlocks,
     Tagging,
 )
+from store.file.local_file_store import LocalFileStore
 from store.sql.sql_store import SqlStore
 from store.sql.sqlite_knowledge_store import SqliteKnowledgeStore
 
@@ -50,6 +52,7 @@ async def main() -> None:
 
     knowledge_store = SqliteKnowledgeStore(db_path=db_path)
     saga_store = SqlStore(db_path=db_path)
+    file_store = LocalFileStore(filestore_dir=os.getenv("FILESTORE_DIR", ".data/filestore"))
 
     definition = SagaDefinition[IngestInput, IngestData](
         name="ingest",
@@ -62,6 +65,7 @@ async def main() -> None:
             BuildSectionPath(),
             ChunkifyBlocks(),
             Tagging(),
+            PersistSourceFile(store=file_store),
             PersistDocument(store=knowledge_store),
             PersistChunks(store=knowledge_store),
         ],

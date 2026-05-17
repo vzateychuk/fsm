@@ -5,6 +5,7 @@ from .load_source import LoadSource
 from .parse_to_tokens import ParseToTokens
 from .persist_chunks import PersistChunks
 from .persist_document import PersistDocument
+from .persist_source_file import PersistSourceFile
 from .preprocess_text import PreprocessText
 from .split_control_blocks import SplitControlBlocks
 from .tagging import Tagging
@@ -18,6 +19,7 @@ __all__ = [
     "BuildSectionPath",
     "ChunkifyBlocks",
     "Tagging",
+    "PersistSourceFile",
     "PersistDocument",
     "PersistChunks",
 ]
