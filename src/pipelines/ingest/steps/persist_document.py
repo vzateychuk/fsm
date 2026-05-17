@@ -20,9 +20,10 @@ class PersistDocument:
         ctx.data.desc = self.desc
         file_hash = assert_file_hash(ctx.data, self.id)
         document_id = file_hash[:32]
+        filestore_path = ctx.data.filestore_path or ctx.input.source_path
         await self.store.save_document(
             document_id=document_id,
-            source_path=ctx.input.source_path,
+            source_path=filestore_path,
             source_sha256=file_hash,
             doc_type=cast(DocType, ctx.data.target_schema),
             indexed_at=datetime.now(timezone.utc).isoformat(),

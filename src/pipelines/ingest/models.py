@@ -88,6 +88,9 @@ class IngestData(SagaData):
     # S1 PreprocessText
     file_hash: str | None = None
 
+    # S7.5 PersistSourceFile
+    filestore_path: str | None = None
+
     # S2 DetectTargetSchema
     target_schema: str | None = None
 

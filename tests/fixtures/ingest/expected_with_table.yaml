@@ -1,0 +1,16 @@
+target_schema: test
+chunks_count: 1
+chunk_kinds:
+  - table
+section_paths_present:
+  - results
+tags_text_contains:
+  - test
+  - results
+  - parameter
+  - value
+  - status
+edge_cases:
+  description: >
+    Проверяет, что markdown-it-py с включенными таблицами распознаёт pipe-table как table-block,
+    а не как набор paragraph.

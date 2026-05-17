@@ -14,6 +14,7 @@ INVARIANTS: dict[str, list[str]] = {
     "build_section_path": ["block_events"],
     "chunkify_blocks": ["chunks"],
     "tagging": ["tagged_chunks"],
+    "persist_source_file": ["filestore_path"],
     "persist_document": ["document_id"],
     "persist_chunks": ["chunk_ids", "fts_updated"],
 }
@@ -86,6 +87,13 @@ def assert_block_events(ctx_data: IngestData, current_step: str) -> list[BlockEv
             raise AssertionError(f"block_events[{i}] contains heading token; only non-heading allowed")
 
     return ctx_data.block_events
+
+
+def assert_filestore_path(ctx_data: IngestData, current_step: str) -> str:
+    """Ensure filestore_path is available; raise if missing."""
+    assert_field(ctx_data.filestore_path, "filestore_path", "PersistSourceFile")
+    assert ctx_data.filestore_path is not None
+    return ctx_data.filestore_path
 
 
 def assert_document_id(ctx_data: IngestData, current_step: str) -> str:

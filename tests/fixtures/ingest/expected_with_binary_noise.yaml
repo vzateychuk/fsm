@@ -1,0 +1,15 @@
+target_schema: test
+chunks_count: 2
+chunk_kinds:
+  - section   # H1 Heading + пустая строка? (heading не chunk), далее paragraph
+  - section   # paragraph "Text with NBSP ..." (markdown-it обычно даст 1 paragraph; но из-за мусора может быть 1)
+section_paths_present:
+  - heading
+tags_text_contains:
+  - test
+  - heading
+  - text
+edge_cases:
+  description: >
+    Проверяет устойчивость препроцессинга к мусорным символам (BOM/NBSP/нулевой байт)
+    и то, что markdown-it-py всё равно даёт токены paragraph без падения.

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from pathlib import Path
 from typing import ClassVar
 
 from fsm.core import RunContext
@@ -27,4 +28,6 @@ class PersistSourceFile:
             content=raw_content,
         )
 
+        filestore_dir = Path(".data/filestore").resolve()
+        ctx.data.filestore_path = str(filestore_dir / f"{document_id}.md")
         ctx.data.desc = f"Source file saved: {document_id}"
