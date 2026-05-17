@@ -52,7 +52,7 @@ Phase 8  — SQLite persistence
 | `tagged_chunks` | S7 Tagging | `list[Chunk]` | `len == len(chunks)`; каждый элемент имеет непустой `tags_text` |
 | `canonical_source_path` | S8 PersistSourceFile | `str` | не `None`; ключ в FileStore, используется как `documents.source_path` |
 | `document_id` | S9 PersistDocument | `str` | не `None`; детерминирован от `file_hash` |
-| `chunk_ids` | S10 PersistChunks | `list[str]` | `len == len(tagged_chunks)` |
+| `chunk_ids` | S10 PersistChunks | `list[str]` | `len == len(tagged_chunks)`; FTS синхронизирован атомарно внутри S10 |
 
 *Результат:* таблица зафиксирована в плане и продублирована как docstring или комментарий в `models.py`. None-guards в Phase 1 пишутся строго по этой таблице — не по интуиции.
 
