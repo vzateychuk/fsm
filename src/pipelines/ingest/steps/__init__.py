@@ -8,7 +8,6 @@ from .persist_document import PersistDocument
 from .preprocess_text import PreprocessText
 from .split_control_blocks import SplitControlBlocks
 from .tagging import Tagging
-from .update_fts import UpdateFTS
 
 __all__ = [
     "LoadSource",
@@ -21,5 +20,4 @@ __all__ = [
     "Tagging",
     "PersistDocument",
     "PersistChunks",
-    "UpdateFTS",
 ]

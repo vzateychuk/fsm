@@ -2,10 +2,12 @@ import asyncio
 import logging
 import os
 import sys
+import uuid
 from pathlib import Path
 
-# Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+import aiosqlite
 
 from common import setup_logging
 from fsm.core import SagaDefinition
@@ -22,22 +24,32 @@ from pipelines.ingest.steps import (
     PreprocessText,
     SplitControlBlocks,
     Tagging,
-    UpdateFTS,
 )
-from store.inmem.inmemory_store import InMemoryStore
+from store.sql.sql_store import SqlStore
+from store.sql.sqlite_knowledge_store import SqliteKnowledgeStore
+
+
+async def init_schema(db_path: str) -> None:
+    schema = (Path(__file__).parent.parent / "store" / "sql" / "schema.sql").read_text()
+    async with aiosqlite.connect(db_path) as conn:
+        await conn.executescript(schema)
 
 
 async def main() -> None:
-    """Document ingestion pipeline: process markdown files for FTS5 indexing (11 steps)"""
+    """Document ingestion pipeline: process markdown files for FTS5 indexing (10 steps)"""
 
-    # Log file path can be set via LOG_FILE environment variable
     log_file = os.getenv("LOG_FILE", "logs/ingest.log")
     setup_logging(level=logging.DEBUG, log_file=log_file)
     logger = logging.getLogger(__name__)
 
-    # Print log location info
     logger.info(f"[INFO] Logs directory: {os.path.abspath(os.path.dirname(log_file))}")
     logger.info(f"[INFO] Log file: {os.path.abspath(log_file)}")
+
+    db_path = os.getenv("DB_PATH", ".data/db/ingest.db")
+    await init_schema(db_path)
+
+    knowledge_store = SqliteKnowledgeStore(db_path=db_path)
+    saga_store = SqlStore(db_path=db_path)
 
     definition = SagaDefinition[IngestInput, IngestData](
         name="ingest",
@@ -50,27 +62,29 @@ async def main() -> None:
             BuildSectionPath(),
             ChunkifyBlocks(),
             Tagging(),
-            PersistDocument(),
-            PersistChunks(),
-            UpdateFTS(),
+            PersistDocument(store=knowledge_store),
+            PersistChunks(store=knowledge_store),
         ],
     )
 
-    store = InMemoryStore()
-    runner = SagaRunner(definition, store, IngestData)
+    runner = SagaRunner(definition, saga_store, IngestData)
 
     logger.info("===> Before run <===")
 
-    # Load sample document from file system
     ingest_file = Path(os.getenv("INGEST_FILE", "tests/fixtures/ingest/consultation_deep.md")).absolute()
 
     if not ingest_file.exists():
         logger.error(f"Document file not found: {ingest_file}")
         sys.exit(1)
 
+    # Генерировать уникальный run_id для каждого нового запуска
+    # Если пользователь передал INGEST_RUN_ID, использовать его (для возобновления)
+    run_id = os.getenv("INGEST_RUN_ID") or f"ingest-{uuid.uuid4().hex[:8]}"
+    logger.info(f"Pipeline run_id: {run_id}")
+
     try:
         ctx = await runner.run(
-            run_id="ingest-001",
+            run_id=run_id,
             input=IngestInput(source_path=str(ingest_file)),
             initial_data=IngestData(),
         )

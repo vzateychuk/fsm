@@ -40,6 +40,9 @@
 |-------------|---------|----------|--------|
 | LOG_FILE    | logs/ingest.log | No | src/main/main.py, src/commons/logging_config.py |
 | INGEST_FILE | tests/fixtures/ingest/consultation_deep.md | No | src/main/main.py |
+| DB_PATH     | .data/db/ingest.db | No | src/main/main.py — SQLite path for KnowledgeStore |
+
+<!-- updated 2026-05-17: added DB_PATH -->
 
 ---
 
@@ -74,10 +77,11 @@ tests/
 |-----------------|-----------------------|---------------------------------------------------|----------------|
 | fsm-core        | src/fsm/              | RunContext, SagaStep, SagaDefinition, Saga, SagaRunner | BUSINESS_LOGIC |
 | fsm-models      | src/fsm/models.py     | Base Pydantic classes SagaInput, SagaData         | DATA_MODELS    |
-| pipeline-ingest | src/pipelines/ingest/ | 10-step markdown document ingestion pipeline      | BUSINESS_LOGIC |
+| pipeline-ingest | src/pipelines/ingest/ | S0–S10: markdown ingest; S8–S10 persist to SQLite  | BUSINESS_LOGIC |
 | store-protocol  | src/store/store.py    | Store Protocol + SavedProgress TypedDict          | INFRA          |
 | store-inmem     | src/store/inmem/      | In-memory Store implementation for testing        | INFRA          |
-| store-sql       | src/store/sql/        | SQLite Store stub (unimplemented)                 | INFRA          |
+| store-sql       | src/store/sql/        | SqlStore (checkpoint) + SqliteKnowledgeStore (docs/chunks/FTS) | INFRA |
+| knowledge-store | src/store/knowledge_store.py | KnowledgeStore Protocol, ChunkSearchResult | INFRA     |
 | commons         | src/commons/          | Logging setup utility                             | DEV_TOOLING    |
 | common-utils    | src/common/           | Shared parsers (schema_id extractor)              | BUSINESS_LOGIC |
 | entrypoint      | src/main/             | Ingest pipeline entry point script                | CLI_AUTOMATION |
@@ -105,6 +109,10 @@ tests/
 | IngestInput                 | Ingest pipeline input: source_path |
 | IngestData                  | Ingest pipeline state: raw_content through tokens, chunks, to document_id |
 | IngestError                 | Domain exception with error code (E_READ_FAIL, E_NO_SCHEMA_ID, etc.) |
+| KnowledgeStore (Protocol)   | save_document, replace_document_chunks, search_chunks |
+| ChunkSearchResult           | BM25 search hit: chunk_id, text, section_path, source_path, rank |
+| ChunkTagged                 | TypedDict: Chunk + tags_text (output of S7 Tagging) |
+| DocType / ChunkKind         | Literals: lab/diagnostic/consultation; table/list/fact/section |
 
 ---
 
@@ -122,7 +130,12 @@ tests/
 | src/pipelines/ingest/models.py | IngestInput, IngestData, MdToken, BlockEvent, Chunk, IngestError | pipeline-ingest |
 | src/pipelines/ingest/steps/__init__.py | Exports all 10 ingest step classes | pipeline-ingest |
 | src/commons/logging_config.py | setup_logging(); respects LOG_FILE env var | commons |
+| src/store/knowledge_store.py | KnowledgeStore Protocol, ChunkSearchResult, DocType, ChunkKind | knowledge-store |
+| src/store/sql/sqlite_knowledge_store.py | SqliteKnowledgeStore: aiosqlite, FTS5, replace_document_chunks | store-sql |
+| src/store/sql/schema.sql | DDL: documents, chunks (chunk_pk PK), chunks_fts (FTS5 content table) | store-sql |
 | src/main/main.py | Ingest pipeline entry point; wires definition, store, runner | entrypoint |
+
+<!-- updated 2026-05-17: added knowledge-store and schema.sql key files -->
 
 ---
 
@@ -138,3 +151,4 @@ tests/
 ---
 
 <!-- Generated: 2026-05-15 -->
+<!-- Updated: 2026-05-17: DB_PATH env var; knowledge-store module; KnowledgeStore/ChunkSearchResult/ChunkTagged entities; schema.sql key files; store-sql description updated -->

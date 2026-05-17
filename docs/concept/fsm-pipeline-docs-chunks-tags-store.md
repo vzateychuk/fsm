@@ -17,10 +17,10 @@ S4 — PARSE_TO_TOKENS (markdown-it-py)
 S5 — BUILD_SECTION_PATH  
 S6 — CHUNKIFY_BLOCKS  
 S7 — TAGGING (deterministic, tags_text без чисел/единиц)  
-S8 — PERSIST_DOCUMENT  
-S9 — PERSIST_CHUNKS  
-S10 — UPDATE_FTS  
-S11 — DONE  
+S8 — PERSIST_SOURCE_FILE (новый)
+S9 — PERSIST_DOCUMENT
+S10 — PERSIST_CHUNKS (внутри обновляет FTS; бывшие S9+S10)
+S11 — DONE
 
 ```mermaid
 flowchart TD
@@ -32,9 +32,9 @@ flowchart TD
   S4 --> S5[S5 BUILD_SECTION_PATH]
   S5 --> S6[S6 CHUNKIFY_BLOCKS]
   S6 --> S7[S7 TAGGING]
-  S7 --> S8[S8 PERSIST_DOCUMENT]
-  S8 --> S9[S9 PERSIST_CHUNKS]
-  S9 --> S10[S10 UPDATE_FTS]
+  S7 --> S8[S8 PERSIST_SOURCE_FILE]
+  S8 --> S9[S9 PERSIST_DOCUMENT]
+  S9 --> S10[S10 PERSIST_CHUNKS + sync FTS]
   S10 --> S11[S11 DONE]
 ```
 
@@ -325,95 +325,88 @@ flowchart TD
 
 ---
 
-# S8 — PERSIST_DOCUMENT
+# S8 — PERSIST_SOURCE_FILE
 
 ## Цель
-Сохранить документ в `documents` (source of truth + audit).
+Сохранить исходный markdown в файловое хранилище и получить стабильный `source_path` (ключ).
+
+## Вход
+- `ctx.source_path` (локальный путь к файлу) или `ctx.raw_text`
+- `ctx.sha256` (вычислен в S1)
+- `ctx.target_schema` (опционально, для раскладки по папкам)
+
+## Выход (в ctx)
+- `ctx.canonical_source_path` — путь/ключ в файловом хранилище
+- (опционально) `ctx.stats[“source_saved”]=True`
+
+## Алгоритм (MVP)
+1) Сформировать ключ: `storage_key = “{doc_type}/{sha256}.md”`.
+2) Записать файл идемпотентно: если уже есть — пропустить.
+3) Сохранить `storage_key` как `ctx.canonical_source_path`.
+
+## Опционально / особенности
+- Если ingestion читает уже из “нормального” хранилища и путь уже является ключом — шаг может быть noop.
+- Ошибки:
+  - `E_STORAGE_WRITE_FAIL` (fatal)
+
+---
+
+# S9 — PERSIST_DOCUMENT
+
+## Цель
+Сохранить запись о документе в `documents` (index + audit). Raw text не хранится — документ живёт в FileStore.
 
 ## Вход
 - `ctx.document_id` (sha256)
-- `ctx.source_path`
+- `ctx.canonical_source_path` (из S8)
 - `ctx.sha256`
 - `ctx.target_schema`
-- `ctx.raw_text`
 - audit: schema_confidence/source/header_line
 
 ## Выход (в ctx)
-- (опционально) `ctx.stats["document_persisted"]=True`
+- (опционально) `ctx.stats[“document_persisted”]=True`
 
 ## Алгоритм
 1) Открыть транзакцию SQLite.
-2) Upsert/insert в `documents`:
-   - id=document_id
-   - source_path
-   - source_sha256
-   - doc_type=target_schema
-   - raw_text
+2) `INSERT OR REPLACE` в `documents`:
+   - `id` = document_id
+   - `source_path` = canonical_source_path
+   - `source_sha256` = sha256
+   - `doc_type` = target_schema
+   - `indexed_at` = now()
    - schema audit fields
 3) Commit.
 
 ## Опционально / особенности
+- `raw_text` в `documents` не хранится: полный текст доступен через FileStore по `source_path`.
 - Ошибки:
   - `E_DB_FAIL` (fatal)
 
 ---
 
-# S9 — PERSIST_CHUNKS
+# S10 — PERSIST_CHUNKS
 
 ## Цель
-Сохранить чанки в `chunks` с полной информацией для FTS и трассировки.
+Сохранить чанки в `chunks` и атомарно синхронизировать FTS5-индекс в рамках одной транзакции.
 
 ## Вход
 - `ctx.document_id`
-- `ctx.chunks` (уже с tags_text)
+- `ctx.chunks` (уже с tags_text из S7)
 
 ## Выход (в ctx)
-- `ctx.stats["chunks_persisted"]=N`
+- `ctx.stats[“chunks_persisted”]=N`
 
-## Алгоритм
-1) Начать транзакцию.
-2) `DELETE FROM chunks WHERE document_id = ?` (policy delete+insert).
+## Алгоритм (replace_document_chunks + SyncFTS, одна транзакция)
+1) `DELETE FROM chunks_fts WHERE rowid IN (SELECT chunk_pk FROM chunks WHERE document_id = ?)` — удалить старые FTS-записи.
+2) `DELETE FROM chunks WHERE document_id = ?` — удалить старые чанки.
 3) Для каждого чанка по порядку:
    - вычислить `chunk_id` (детерминированный хеш от doc_id + section_path + kind + text)
-   - присвоить `chunk_no` (0..N-1 или 1..N)
-   - вставить:
-     - id, document_id, chunk_no, section_path, heading, kind, text, tags_text
-4) Commit.
+   - присвоить `chunk_no` (0..N-1)
+   - вставить: id, document_id, chunk_no, section_path, heading, kind, text, tags_text
+4) `INSERT INTO chunks_fts(rowid, text, heading, section_path, tags_text) SELECT chunk_pk, ... FROM chunks WHERE document_id = ?` — синхронизировать FTS.
+5) Commit.
 
-## Опционально / особенности
-- Ошибки:
-  - `E_DB_FAIL` (fatal)
-
----
-
-# S11 — UPDATE_FTS
-
-## Цель
-Синхронизировать FTS5 индекс по чанкам, чтобы поиск работал по `chunks_fts`.
-
-## Вход
-- `ctx.document_id`
-- `ctx.chunks` (или данные из `chunks` таблицы)
-
-## Выход (в ctx)
-- `ctx.stats["fts_rows"]=N`
-
-## Алгоритм (концептуально)
-Есть два допустимых подхода:
-
-### A) Triggers-based (в SQLite)
-- FTS5 таблица настроена как `content='chunks'`.
-- Триггеры на insert/update/delete в `chunks` поддерживают `chunks_fts`.
-
-Тогда S10 может быть noop (или “verify-only”).
-
-### B) Explicit sync (в коде)
-1) `DELETE FROM chunks_fts WHERE rowid IN (SELECT rowid FROM chunks WHERE document_id=...)`  
-   (или проще: пересоздать записи по doc_id)
-2) `INSERT INTO chunks_fts(rowid, text, heading, section_path, tags_text)`
-   выбирая данные из `chunks`.
-
-Вы выбираете один и фиксируете. Для соло-разработчика чаще проще explicit.
+Отдельного шага `UpdateFTS` нет: FTS всегда синхронизирован после этой операции.
 
 ## Опционально / особенности
 - Ошибки:

@@ -7,7 +7,7 @@
 
 target_schema: lab
 
-chunks_count: 15
+chunks_count: 17
 
 chunk_kinds:
   # ## Общие сведения

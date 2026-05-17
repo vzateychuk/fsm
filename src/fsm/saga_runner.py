@@ -53,6 +53,7 @@ class SagaRunner(Generic[TIn, TData]):
                 "saga_name": run_ctx.saga_name,
                 "cursor": run_ctx.cursor,
                 "state": run_ctx.data.model_dump(),
+                "source_path": run_ctx.input.source_path if hasattr(run_ctx.input, "source_path") else None,
             }
             await self._store.save(progress)
             logger.info(
@@ -74,7 +75,8 @@ class SagaRunner(Generic[TIn, TData]):
         saved = await self._store.load(run_id)
         if saved and saved["saga_name"] == self._def.name:
             logger.info(f"Resuming saga from cursor={saved['cursor']}")
-            logger.debug(f"Loaded state: {saved['state']}")
+            state_keys = list(saved["state"].keys())
+            logger.debug(f"Loaded state keys: {state_keys}")
             data = self._data_type.model_validate(saved["state"])
             return RunContext[TIn, TData](
                 run_id=run_id,

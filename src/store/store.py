@@ -1,4 +1,4 @@
-from typing import Any, Protocol, TypedDict
+from typing import Any, NotRequired, Protocol, TypedDict
 
 
 class SavedProgress(TypedDict):
@@ -8,6 +8,7 @@ class SavedProgress(TypedDict):
     saga_name: str
     cursor: int
     state: dict[str, Any]
+    source_path: NotRequired[str]
 
 
 class Store(Protocol):

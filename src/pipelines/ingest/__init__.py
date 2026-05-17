@@ -1,5 +1,6 @@
 from pipelines.ingest.models import IngestData, IngestInput
 from pipelines.ingest.steps import (
+    BuildSectionPath,
     ChunkifyBlocks,
     DetectTargetSchema,
     LoadSource,
@@ -9,7 +10,6 @@ from pipelines.ingest.steps import (
     PreprocessText,
     SplitControlBlocks,
     Tagging,
-    UpdateFTS,
 )
 
 __all__ = [
@@ -20,9 +20,9 @@ __all__ = [
     "DetectTargetSchema",
     "SplitControlBlocks",
     "ParseToTokens",
+    "BuildSectionPath",
     "ChunkifyBlocks",
     "Tagging",
     "PersistDocument",
     "PersistChunks",
-    "UpdateFTS",
 ]

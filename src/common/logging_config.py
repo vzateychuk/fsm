@@ -48,6 +48,9 @@ def setup_logging(
     # Настроить root logger
     logging.basicConfig(level=level, handlers=handlers, force=True)
 
+    # Снизить уровень логирования для aiosqlite (избежать логирования полных SQL параметров с unicode)
+    logging.getLogger("aiosqlite").setLevel(logging.WARNING)
+
 
 def get_logger(name: str) -> logging.Logger:
     """Получить logger по имени"""
