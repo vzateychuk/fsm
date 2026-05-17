@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Literal, Protocol
 if TYPE_CHECKING:
     from pipelines.ingest.models import ChunkTagged
 
-DocType = Literal["lab", "diagnostic", "consultation"]
+DocType = str
 ChunkKind = Literal["table", "list", "fact", "section"]
 
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
@@ -10,6 +11,9 @@ from store.knowledge_store import ChunkKind, ChunkSearchResult, DocType
 
 if TYPE_CHECKING:
     from pipelines.ingest.models import ChunkTagged
+
+
+_BM25_WEIGHTS = (1.0, 2.5, 2.0, 3.5)
 
 
 def _chunk_id(document_id: str, section_path: str | None, kind: str, text: str) -> str:
@@ -45,46 +49,51 @@ class SqliteKnowledgeStore:
         document_id: str,
         chunks: list[ChunkTagged],
     ) -> list[str]:
-        chunk_ids: list[str] = []
-        async with aiosqlite.connect(self.db_path) as conn:
-            # 1. FTS delete: log old entries before removing source rows
-            await conn.execute(
-                "INSERT INTO chunks_fts(chunks_fts, rowid)"
-                " SELECT 'delete', c.chunk_pk FROM chunks c WHERE c.document_id = ?",
-                (document_id,),
+        rows = [
+            (
+                _chunk_id(document_id, chunk.get("section_path"), chunk["kind"], chunk["text"]),
+                document_id,
+                i,
+                chunk.get("section_path"),
+                chunk.get("heading"),
+                chunk["kind"],
+                chunk["text"],
+                chunk.get("tags_text"),
             )
-            # 2. Delete old chunks
-            await conn.execute("DELETE FROM chunks WHERE document_id = ?", (document_id,))
+            for i, chunk in enumerate(chunks)
+        ]
+        chunk_ids = [row[0] for row in rows]
 
-            # 3. Batch insert new chunks
-            for i, chunk in enumerate(chunks):
-                cid = _chunk_id(document_id, chunk.get("section_path"), chunk["kind"], chunk["text"])
+        async with aiosqlite.connect(self.db_path) as conn:
+            try:
+                # 1. FTS delete: log old entries before removing source rows
                 await conn.execute(
+                    "INSERT INTO chunks_fts(chunks_fts, rowid)"
+                    " SELECT 'delete', c.chunk_pk FROM chunks c WHERE c.document_id = ?",
+                    (document_id,),
+                )
+                # 2. Delete old chunks
+                await conn.execute("DELETE FROM chunks WHERE document_id = ?", (document_id,))
+
+                # 3. Batch insert new chunks
+                await conn.executemany(
                     "INSERT INTO chunks"
                     " (chunk_id, document_id, chunk_no, section_path, heading, kind, text, tags_text)"
                     " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        cid,
-                        document_id,
-                        i,
-                        chunk.get("section_path"),
-                        chunk.get("heading"),
-                        chunk["kind"],
-                        chunk["text"],
-                        chunk.get("tags_text"),
-                    ),
+                    rows,
                 )
-                chunk["chunk_no"] = i
-                chunk_ids.append(cid)
 
-            # 4. Rebuild FTS from new chunks
-            await conn.execute(
-                "INSERT INTO chunks_fts(rowid, text, heading, section_path, tags_text)"
-                " SELECT chunk_pk, text, heading, section_path, tags_text"
-                " FROM chunks WHERE document_id = ?",
-                (document_id,),
-            )
-            await conn.commit()
+                # 4. Rebuild FTS from new chunks
+                await conn.execute(
+                    "INSERT INTO chunks_fts(rowid, text, heading, section_path, tags_text)"
+                    " SELECT chunk_pk, text, heading, section_path, tags_text"
+                    " FROM chunks WHERE document_id = ?",
+                    (document_id,),
+                )
+                await conn.commit()
+            except Exception:
+                await conn.rollback()
+                raise
 
         return chunk_ids
 
@@ -103,13 +112,13 @@ class SqliteKnowledgeStore:
         sql = (
             "SELECT c.chunk_id, c.document_id, c.chunk_no, c.kind, c.text,"
             " c.section_path, c.heading, c.tags_text,"
-            " d.source_path, d.doc_type, bm25(chunks_fts) AS rank"
+            " d.source_path, d.doc_type, bm25(chunks_fts, ?, ?, ?, ?) AS rank"
             " FROM chunks_fts"
             " JOIN chunks c ON chunks_fts.rowid = c.chunk_pk"
             " JOIN documents d ON c.document_id = d.id"
             " WHERE chunks_fts MATCH ?"
         )
-        params: list[Any] = [query]
+        params: list[Any] = [*_BM25_WEIGHTS, query]
 
         if doc_type:
             sql += " AND d.doc_type = ?"
@@ -120,7 +129,7 @@ class SqliteKnowledgeStore:
         if kinds:
             placeholders = ",".join("?" * len(kinds))
             sql += f" AND c.kind IN ({placeholders})"
-            params.extend(kinds)
+            params.extend(sorted(kinds))
         if section_path_prefix:
             sql += " AND c.section_path LIKE ?"
             params.append(f"{section_path_prefix}%")
@@ -133,14 +142,14 @@ class SqliteKnowledgeStore:
             async with conn.execute(sql, params) as cursor:
                 rows = await cursor.fetchall()
 
-        counts_per_doc: dict[str, int] = {}
+        diversity_enabled = limit_per_document > 0
+        counts_per_doc: dict[str, int] = defaultdict(int)
         results: list[ChunkSearchResult] = []
         for row in rows:
             doc_id = row["document_id"]
-            count = counts_per_doc.get(doc_id, 0)
-            if count >= limit_per_document:
+            if diversity_enabled and counts_per_doc[doc_id] >= limit_per_document:
                 continue
-            counts_per_doc[doc_id] = count + 1
+            counts_per_doc[doc_id] += 1
             results.append(
                 ChunkSearchResult(
                     chunk_id=row["chunk_id"],

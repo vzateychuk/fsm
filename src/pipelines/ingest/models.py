@@ -69,15 +69,14 @@ class IngestData(SagaData):
     Field invariants (guaranteed after respective step):
     - S0 LoadSource: raw_content (not None, full file text)
     - S1 PreprocessText: file_hash (not None, 64 hex chars)
-    - S2 DetectTargetSchema: target_schema (not None, in {lab, diagnostic, consultation})
-    - S3 SplitControlBlocks: metadata_block (may be None), md_body (not None, no schema line)
+    - S2 DetectTargetSchema: target_schema (not None, canonical value from config/categories.json)
+    - S3 SplitControlBlocks: md_body (not None, category line removed)
     - S4 ParseToTokens: tokens (may be empty, E_MD_PARSE_FAIL on parser error)
     - S5 BuildSectionPath: block_events (all blocks with section_path and heading)
     - S6 ChunkifyBlocks: chunks (len >= 1, E_EMPTY_CHUNKS if empty)
     - S7 Tagging: tagged_chunks (len == len(chunks), tags_text not empty)
     - S8 PersistDocument: document_id (not None, deterministic from file_hash[:32])
-    - S9 PersistChunks: chunk_ids (len == len(tagged_chunks))
-    - S10 UpdateFTS: fts_updated (always True after step)
+    - S9 PersistChunks: chunk_ids (len == len(tagged_chunks)); fts_updated always True (FTS sync is atomic inside S9)
     """
 
     desc: str | None = None
@@ -95,7 +94,6 @@ class IngestData(SagaData):
     target_schema: str | None = None
 
     # S3 SplitControlBlocks
-    metadata_block: str | None = None
     md_body: str | None = None
 
     # S4 ParseToTokens
@@ -116,7 +114,7 @@ class IngestData(SagaData):
     # S9 PersistChunks
     chunk_ids: list[str] = Field(default_factory=list)
 
-    # S10 UpdateFTS
+    # S9 PersistChunks (FTS sync atomic)
     fts_updated: bool = False
 
 
@@ -126,8 +124,7 @@ class IngestError(Exception):
     Codes:
         E_READ_FAIL: file read failed (transient)
         E_DB_FAIL: database operation failed (transient)
-        E_NO_SCHEMA_ID: Target Schema ID not found (fatal)
-        E_SCHEMA_INVALID: Target Schema ID value not in {lab, diagnostic, consultation} (fatal)
+        E_NO_SCHEMA_ID: Категория not found or value not in allowed categories (fatal)
         E_MD_PARSE_FAIL: markdown parsing failed (fatal)
         E_EMPTY_CHUNKS: no chunks produced (fatal)
     """

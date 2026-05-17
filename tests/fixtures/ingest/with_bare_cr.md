@@ -1,1 +1,2 @@
-﻿Target Schema ID: test# HeadingParagraph---
+**Категория:** Анализы
+# HeadingParagraph---

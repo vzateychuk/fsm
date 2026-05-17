@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 import aiosqlite
 
-from store.store import SavedProgress, Store
+from store.store import SavedProgress
 
 
 @dataclass(slots=True)

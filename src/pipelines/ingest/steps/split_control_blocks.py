@@ -1,53 +1,41 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import ClassVar
 
-from common.utils.parsers import find_schema_id
+from common.utils.parsers import find_category, load_categories
 from fsm.core import RunContext
 from pipelines.ingest.guards import assert_raw_content
 from pipelines.ingest.models import IngestData, IngestInput
 
+_DEFAULT_CATEGORIES_CONFIG = Path(__file__).parents[4] / "config" / "categories.yaml"
+
 
 @dataclass(slots=True)
 class SplitControlBlocks:
-    """S4: Split document into markdown body and footer metadata.
+    """S3: Remove category line from document body.
 
-    Footer-only approach: extracts metadata block from end of document (starting with "metadata:").
-    No frontmatter processing (--- at start is treated as markdown HR, not YAML).
-    Removes Target Schema ID line from body to avoid markdown parsing pollution.
+    Finds **Категория:** marker line and removes it from the markdown body
+    to avoid polluting markdown parsing/chunking.
     """
 
     id: ClassVar[str] = "split_control_blocks"
-    desc: ClassVar[str] = "Split into markdown body and footer metadata"
+    desc: ClassVar[str] = "Remove category line from body"
+
+    categories_config: Path = field(default_factory=lambda: _DEFAULT_CATEGORIES_CONFIG)
+    _allowed: list[str] = field(init=False)
+
+    def __post_init__(self) -> None:
+        self._allowed: list[str] = load_categories(self.categories_config)
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = self.desc
         content = assert_raw_content(ctx.data, self.id)
         lines = content.split("\n")
 
-        # Step 1: Extract footer metadata (reverse scan for "metadata:" marker at line start)
-        meta_idx = None
-        for i in range(len(lines) - 1, -1, -1):
-            stripped = lines[i].strip().lower()
-            if stripped == "metadata:" or stripped.startswith("metadata:"):
-                meta_idx = i
-                break
-
-        if meta_idx is not None:
-            # Found footer metadata block
-            md_body_lines = lines[:meta_idx]
-            # Remove optional --- separator immediately before metadata (footer delimiter)
-            if md_body_lines and md_body_lines[-1].strip() == "---":
-                md_body_lines.pop()
-            ctx.data.metadata_block = "\n".join(lines[meta_idx:])
-        else:
-            md_body_lines = lines
-            ctx.data.metadata_block = None
-
-        # Step 2: Remove Target Schema ID line from body (search first ~30 lines)
-        # This prevents schema marker from polluting markdown parsing/chunking
-        match = find_schema_id(md_body_lines, search_limit=30)
+        # Remove category line if found (first occurrence in first 30 lines)
+        match = find_category(lines, self._allowed, search_limit=30)
         if match:
-            md_body_lines.pop(match.line_number)
+            lines.pop(match.line_number)
 
-        ctx.data.md_body = "\n".join(md_body_lines)
-        ctx.data.desc = f"Split: metadata={bool(ctx.data.metadata_block)}, body_lines={len(ctx.data.md_body.split(chr(10)))}"
+        ctx.data.md_body = "\n".join(lines)
+        ctx.data.desc = f"Cleaned: {len(lines)} lines, body_size={len(ctx.data.md_body)}"

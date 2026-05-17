@@ -54,13 +54,15 @@ async def main() -> None:
     saga_store = SqlStore(db_path=db_path)
     file_store = LocalFileStore(filestore_dir=os.getenv("FILESTORE_DIR", ".data/filestore"))
 
+    categories_config = Path(__file__).parents[2] / "config" / "categories.yaml"
+
     definition = SagaDefinition[IngestInput, IngestData](
         name="ingest",
         steps=[
             LoadSource(),
             PreprocessText(),
-            DetectTargetSchema(),
-            SplitControlBlocks(),
+            DetectTargetSchema(categories_config=categories_config),
+            SplitControlBlocks(categories_config=categories_config),
             ParseToTokens(),
             BuildSectionPath(),
             ChunkifyBlocks(),

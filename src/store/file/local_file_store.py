@@ -1,8 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from store.filestore import FileStore
-
 
 @dataclass(slots=True)
 class LocalFileStore:

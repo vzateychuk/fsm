@@ -1,4 +1,5 @@
 import hashlib
+import unicodedata
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -42,8 +43,17 @@ class PreprocessText:
         # 4. Replace NBSP ( ) with regular space
         content = content.replace(" ", " ")
 
+        # 5. Unicode normalization to NFKC
+        content = unicodedata.normalize("NFKC", content)
+
+        # 6. Lowercase for deterministic matching
+        content = content.lower()
+
+        # 7. Replace ё with е (Russian-specific normalization)
+        content = content.replace("ё", "е")
+
         ctx.data.raw_content = content
 
-        # 5. Compute SHA256 from normalized text (explicit utf-8)
+        # 8. Compute SHA256 from normalized text (explicit utf-8)
         ctx.data.file_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
         ctx.data.desc = f"Preprocessed, hash={ctx.data.file_hash[:16]}..."
