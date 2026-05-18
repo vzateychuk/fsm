@@ -14,15 +14,29 @@ from store.knowledge_store import KnowledgeStore
 
 @dataclass(slots=True)
 class SearchChunks:
-    """R5: Execute FTS5 search against KnowledgeStore with BM25 and diversity.
+    """R5: Execute FTS5 BM25 search with oversampling and per-document diversity.
 
-    Calls KnowledgeStore.search_chunks() with prepared fts_match query and SQL filters.
-    Diversity is applied inside store.search_chunks() (limit_per_document parameter).
-    Results are stored in ctx.data.final_chunks.
+    This is the core retrieval step. It submits the prepared fts_match
+    expression to KnowledgeStore.search_chunks(), which runs a BM25-ranked
+    FTS5 query with field weights (tags_text > heading > section_path > text)
+    and returns chunks ordered by relevance score.
+
+    Oversampling (prelimit >> limit) ensures the diversity filter has enough
+    candidates: the store first collects up to prelimit BM25 results, then
+    applies a cap of limit_per_document chunks per document, and finally
+    returns the top limit results. Without oversampling, a single highly
+    relevant document could exhaust the result set before other documents
+    get a chance to appear.
 
     category filtering:
-    - "hard" mode: if intent is detected, pass category to store (strict filter)
-    - "soft" mode (default): intent is for debug only, no SQL filter applied
+    - "soft" (default): category is not used as a SQL filter; search spans
+      all documents. Suitable when a diagnostic procedure may appear in both
+      diagnostic and consultation documents.
+    - "hard": if intent.detected_type is set, adds WHERE d.category = ?
+      to restrict results to one document category.
+
+    Reads: ctx.data.fts_match, ctx.data.intent, ctx.input.*
+    Sets:  ctx.data.final_chunks
     """
 
     id: ClassVar[str] = "search_chunks"
@@ -54,6 +68,7 @@ class SearchChunks:
             limit=ctx.input.limit,
             limit_per_document=ctx.input.limit_per_document,
             prelimit=ctx.input.prelimit,
+            bm25_weights=self.config.bm25_weights,
         )
 
         if self.config.debug:

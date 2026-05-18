@@ -13,9 +13,22 @@ from pipelines.retrieval.models import IntentInfo, RetrievalData, RetrieveReques
 class ClassifyIntent:
     """R2: Propagate explicit category from request into pipeline intent.
 
-    If request.category is set, wraps it in IntentInfo with confidence=1.0.
-    If not set, intent remains None — SearchChunks will search across all categories.
-    No heuristic or keyword matching: category must be provided explicitly by the caller.
+    Wraps request.category in IntentInfo so downstream steps have a uniform
+    intent contract regardless of how the category was obtained (UI selection,
+    API caller, etc.). No keyword heuristics are applied: the caller is
+    responsible for determining the category. This keeps the pipeline
+    deterministic and avoids false-positive category detection that would
+    silently narrow search results.
+
+    In RETRIEVE_CATEGORY_MODE=hard the detected_type becomes a SQL WHERE
+    filter in R5, restricting results to one category. In soft mode (default)
+    it is available for debug only and has no effect on ranking or filtering.
+
+    If request.category is None, intent remains None and R5 searches across
+    all categories.
+
+    Reads: ctx.input.category
+    Sets:  ctx.data.intent
     """
 
     id: ClassVar[str] = "classify_intent"

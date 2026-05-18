@@ -57,6 +57,7 @@ class KnowledgeStore(Protocol):
         limit: int = 20,
         limit_per_document: int = 3,
         prelimit: int = 200,
+        bm25_weights: tuple[float, float, float, float] | None = None,
     ) -> list[ChunkSearchResult]: ...
 
     async def get_documents_raw_text(
@@ -64,4 +65,18 @@ class KnowledgeStore(Protocol):
         document_ids: list[str],
     ) -> dict[str, str]:
         """Return {document_id: raw_text} for each requested id that exists."""
+        ...
+
+    async def get_neighbor_chunks(
+        self,
+        document_id: str,
+        chunk_no: int,
+        window: int,
+    ) -> list[ChunkSearchResult]:
+        """Return chunks with chunk_no in [chunk_no-window, chunk_no+window], ordered by chunk_no.
+
+        Used by R7 OptionalEnrich to load surrounding context for a matched chunk.
+        Returned chunks have rank=0.0 (positional retrieval, not BM25-ranked).
+        The matched chunk itself is included in the result.
+        """
         ...

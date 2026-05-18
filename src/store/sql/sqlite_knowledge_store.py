@@ -112,6 +112,44 @@ class SqliteKnowledgeStore:
                 rows = await cursor.fetchall()
         return {row["id"]: row["raw_text"] for row in rows}
 
+    async def get_neighbor_chunks(
+        self,
+        document_id: str,
+        chunk_no: int,
+        window: int,
+    ) -> list[ChunkSearchResult]:
+        lo = chunk_no - window
+        hi = chunk_no + window
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(
+                "SELECT c.chunk_id, c.document_id, c.chunk_no, c.kind, c.text,"
+                " c.section_path, c.heading, c.tags_text,"
+                " d.source_path, d.category"
+                " FROM chunks c"
+                " JOIN documents d ON c.document_id = d.id"
+                " WHERE c.document_id = ? AND c.chunk_no BETWEEN ? AND ?"
+                " ORDER BY c.chunk_no",
+                (document_id, lo, hi),
+            ) as cursor:
+                rows = await cursor.fetchall()
+        return [
+            ChunkSearchResult(
+                chunk_id=row["chunk_id"],
+                document_id=row["document_id"],
+                chunk_no=row["chunk_no"],
+                kind=row["kind"],
+                text=row["text"],
+                section_path=row["section_path"],
+                heading=row["heading"],
+                tags_text=row["tags_text"],
+                source_path=row["source_path"],
+                category=row["category"],
+                rank=0.0,
+            )
+            for row in rows
+        ]
+
     async def search_chunks(
         self,
         query: str,
@@ -123,7 +161,9 @@ class SqliteKnowledgeStore:
         limit: int = 20,
         limit_per_document: int = 3,
         prelimit: int = 200,
+        bm25_weights: tuple[float, float, float, float] | None = None,
     ) -> list[ChunkSearchResult]:
+        weights = bm25_weights if bm25_weights is not None else self.bm25_weights
         sql = (
             "SELECT c.chunk_id, c.document_id, c.chunk_no, c.kind, c.text,"
             " c.section_path, c.heading, c.tags_text,"
@@ -133,7 +173,7 @@ class SqliteKnowledgeStore:
             " JOIN documents d ON c.document_id = d.id"
             " WHERE chunks_fts MATCH ?"
         )
-        params: list[Any] = [*self.bm25_weights, query]
+        params: list[Any] = [*weights, query]
 
         if category:
             sql += " AND d.category = ?"

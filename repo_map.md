@@ -61,7 +61,7 @@
 | RETRIEVE_BM25_WEIGHTS       | no       | BM25 weights text/heading/section/tags (default: 1.0,2.5,2.0,3.5) |
 | RETRIEVE_ENABLE_PREFIXES    | no       | FTS prefix matching (default: true)            |
 | RETRIEVE_PREFIX_MIN_LEN     | no       | Min token length for prefix (default: 5)       |
-| RETRIEVE_DOC_TYPE_MODE      | no       | soft/hard doc_type filter (default: soft)      |
+| RETRIEVE_CATEGORY_MODE      | no       | soft/hard category filter (default: soft)      |
 | RETRIEVE_DEBUG              | no       | Enable retrieval debug output (default: false) |
 
 ---
@@ -139,7 +139,7 @@
 | STEP | FROM             | TO               | PURPOSE                            | NOTES                                               |
 |------|------------------|------------------|------------------------------------|-----------------------------------------------------|
 | 1    | RetrieveRequest  | NormalizeQuery   | NFKC + lowercase + ё→е             | src/pipelines/retrieval/steps/normalize_query.py    |
-| 2    | NormalizeQuery   | ClassifyIntent   | Keyword-prefix intent heuristic    | src/pipelines/retrieval/steps/classify_intent.py    |
+| 2    | NormalizeQuery   | ClassifyIntent   | Propagate request.category → IntentInfo | src/pipelines/retrieval/steps/classify_intent.py |
 | 3    | ClassifyIntent   | BuildFtsQuery    | Expand aliases → FTS5 MATCH expr   | src/pipelines/retrieval/steps/build_fts_query.py    |
 | 4    | BuildFtsQuery    | SearchChunks     | BM25 + diversity search            | src/pipelines/retrieval/steps/search_chunks.py      |
 | 5    | SearchChunks     | GroupByDocument  | Group chunks by document_id        | src/pipelines/retrieval/steps/group_by_document.py  |
@@ -166,7 +166,7 @@
 | ChunkTagged                | Chunk + tags_text (output of S7 Tagging)                  |
 | RetrieveRequest            | Query + filters + limits for retrieval                    |
 | RetrievalData              | Retrieval pipeline state R0–R7                            |
-| IntentInfo                 | Intent detection: detected_type, confidence, keywords     |
+| IntentInfo                 | detected_type (category), confidence always 1.0           |
 | DocumentEvidence           | Grouped search result: doc metadata + chunks + full_text  |
 
 ---
@@ -211,3 +211,4 @@
 ---
 
 <!-- Generated: 2026-05-17 -->
+<!-- updated 2026-05-17: DocType→Category rename; RETRIEVE_DOC_TYPE_MODE→RETRIEVE_CATEGORY_MODE; ClassifyIntent simplified (no keyword heuristic) -->

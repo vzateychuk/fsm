@@ -53,13 +53,19 @@ class RetrieveRequest(SagaInput):
 
 @dataclass
 class DocumentEvidence:
-    """Retrieval result grouped by document: document metadata + matched chunks."""
+    """Retrieval result grouped by document: document metadata + matched chunks.
+
+    context_chunks: populated by R7 when context_window > 0.
+    Maps chunk_id → ordered list of neighboring chunks (chunk_no ± window).
+    The matched chunk itself is excluded from its own neighbor list.
+    """
 
     document_id: str
     source_path: str
     category: str
     chunks: list[ChunkSearchResult] = field(default_factory=list)
     full_text: str | None = None
+    context_chunks: dict[str, list[ChunkSearchResult]] = field(default_factory=dict)
 
 
 @dataclass
