@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Literal, Protocol
 if TYPE_CHECKING:
     from pipelines.ingest.models import ChunkTagged
 
-DocType = str
+Category = str
 ChunkKind = Literal["table", "list", "fact", "section"]
 
 
@@ -21,7 +21,7 @@ class ChunkSearchResult:
     heading: str | None
     tags_text: str | None
     source_path: str
-    doc_type: DocType
+    category: Category
     rank: float  # bm25, lower is better
 
 
@@ -32,7 +32,7 @@ class KnowledgeStore(Protocol):
         document_id: str,
         source_path: str,
         source_sha256: str,
-        doc_type: DocType,
+        category: Category,
         indexed_at: str,
         raw_text: str,
     ) -> None: ...
@@ -50,7 +50,7 @@ class KnowledgeStore(Protocol):
         self,
         query: str,
         *,
-        doc_type: DocType | None = None,
+        category: Category | None = None,
         document_id: str | None = None,
         kinds: set[ChunkKind] | None = None,
         section_path_prefix: str | None = None,
@@ -58,3 +58,10 @@ class KnowledgeStore(Protocol):
         limit_per_document: int = 3,
         prelimit: int = 200,
     ) -> list[ChunkSearchResult]: ...
+
+    async def get_documents_raw_text(
+        self,
+        document_ids: list[str],
+    ) -> dict[str, str]:
+        """Return {document_id: raw_text} for each requested id that exists."""
+        ...

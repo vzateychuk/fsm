@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from typing import ClassVar
 
+from common.alias_map import ALIAS_MAP, is_stopword, is_unit
 from fsm.core import RunContext
-from pipelines.ingest.alias_map import ALIAS_MAP, is_stopword, is_unit
 from pipelines.ingest.guards import assert_chunks
 from pipelines.ingest.models import ChunkTagged, IngestData, IngestInput
 from pipelines.ingest.tokenizer import tokenize
@@ -58,7 +58,7 @@ class Tagging:
 
     Pipeline: tokenize sources → filter (digits/units/stopwords/len) →
     expand composites (hyphen/slash) → alias expansion → dedup+sort.
-    Sources: target_schema (doc_type), kind, section_path, heading.
+    Sources: target_schema (category), kind, section_path, heading.
     """
 
     id: ClassVar[str] = "tagging"
@@ -67,12 +67,12 @@ class Tagging:
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = self.desc
         chunks = assert_chunks(ctx.data, self.id)
-        doc_type = ctx.data.target_schema or ""
+        category = ctx.data.target_schema or ""
         tagged_chunks: list[ChunkTagged] = []
 
         for chunk in chunks:
             sources = [
-                doc_type,
+                category,
                 chunk["kind"],
                 chunk["section_path"],
                 chunk["heading"] or "",

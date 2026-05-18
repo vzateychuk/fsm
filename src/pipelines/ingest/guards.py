@@ -104,9 +104,19 @@ def assert_document_id(ctx_data: IngestData, current_step: str) -> str:
 
 
 def assert_chunks(ctx_data: IngestData, current_step: str) -> list[ChunkBase]:
-    """Ensure chunks list is available; raise if missing."""
+    """Ensure chunks list is available and non-empty; raise if missing or empty.
+
+    Per data contract (S6): chunks (len >= 1, E_EMPTY_CHUNKS if empty)
+    Empty chunks violate the contract and must be caught here as programming error.
+    """
     assert_field(ctx_data.chunks, "chunks", "ChunkifyBlocks")
     assert ctx_data.chunks is not None
+    if not ctx_data.chunks:
+        raise RuntimeError(
+            f"chunks list is empty after ChunkifyBlocks. "
+            f"Step {current_step} cannot proceed with zero chunks. "
+            f"ChunkifyBlocks should have raised E_EMPTY_CHUNKS instead."
+        )
     return ctx_data.chunks
 
 

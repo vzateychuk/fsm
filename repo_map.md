@@ -1,154 +1,213 @@
 ## PROJECT
-| FIELD        | VALUE |
-|--------------|-------|
-| name         | fsm |
-| type         | Python library — async pipeline runner |
-| architecture | Saga pattern with checkpointing; layered (framework / pipeline / store) |
-| languages    | Python >=3.13 |
-| frameworks   | Pydantic 2.x, asyncio, aiosqlite |
-| build        | setuptools + uv |
+
+| FIELD        | VALUE                                                                    |
+|--------------|--------------------------------------------------------------------------|
+| name         | fsm                                                                      |
+| type         | library + application                                                    |
+| architecture | layered pipeline — FSM core + ingest pipeline + retrieval pipeline       |
+| languages    | Python >=3.13                                                            |
+| frameworks   | Pydantic 2.x, aiosqlite, markdown-it-py                                  |
+| build        | setuptools>=69, uv                                                       |
 
 ---
 
 ## COMMANDS
-| TASK       | COMMAND           | NOTES |
-|------------|-------------------|-------|
-| test       | pytest            | configured: asyncio_mode=auto, testpaths=tests/ |
-| lint       | ruff check src/   | configured: select E,F,I,B,UP; line-length 100 |
-| type-check | mypy src/         | configured: strict=true, python_version 3.11 |
 
-*(No [project.scripts] declared. Commands above are dev-tool invocations configured in [tool.*] sections of pyproject.toml.)*
+| TASK        | COMMAND              | NOTES                                          |
+|-------------|----------------------|------------------------------------------------|
+| test        | pytest               | testpaths=tests, asyncio_mode=auto             |
+| lint        | ruff check src/      | rules E,F,I,B,UP; line-length=100             |
+| type-check  | mypy src/            | strict mode                                    |
+| run-ingest  | python src/main/main.py | env: DB_PATH, INGEST_FILE, INGEST_RUN_ID    |
+
+*(No [project.scripts] declared; commands from [tool.*] sections of pyproject.toml.)*
 
 ---
 
 ## RUNTIME
-(skip - no runtime descriptor)
+
+| REQUIREMENT | VERSION  | NOTES                         |
+|-------------|----------|-------------------------------|
+| Python      | >=3.13   | from pyproject.toml           |
+| SQLite      | bundled  | via aiosqlite; FTS5 required  |
+
+*(No Dockerfile or docker-compose found.)*
 
 ---
 
 ## DEPENDENCIES
-| PACKAGE        | VERSION        | PURPOSE |
-|----------------|----------------|---------|
-| pydantic       | >=2.7,<3       | Data models and validation for SagaData/SagaInput |
-| aiosqlite      | >=0.20.0,<0.22 | Async SQLite for SQLStore (stub) |
-| markdown-it-py | >=3.0,<4       | Markdown token parsing in ingest pipeline |
+
+| PACKAGE        | VERSION        | PURPOSE                           |
+|----------------|----------------|-----------------------------------|
+| pydantic       | >=2.7,<3       | pipeline state models/validation  |
+| aiosqlite      | >=0.20.0,<0.22 | async SQLite driver               |
+| markdown-it-py | >=3.0,<4       | Markdown token parsing            |
+| PyYAML         | >=6.0,<7       | category/alias config loading     |
 
 ---
 
 ## ENV_CONFIG
-| VARIABLE    | DEFAULT | REQUIRED | SOURCE |
-|-------------|---------|----------|--------|
-| LOG_FILE    | logs/ingest.log | No | src/main/main.py, src/commons/logging_config.py |
-| INGEST_FILE | tests/fixtures/ingest/consultation_deep.md | No | src/main/main.py |
-| DB_PATH     | .data/db/ingest.db | No | src/main/main.py — SQLite path for KnowledgeStore |
 
-<!-- updated 2026-05-17: added DB_PATH -->
+| KEY                         | REQUIRED | PURPOSE                                        |
+|-----------------------------|----------|------------------------------------------------|
+| DB_PATH                     | no       | SQLite path (default: .data/db/ingest.db)      |
+| FILESTORE_DIR               | no       | Source file storage (default: .data/filestore) |
+| INGEST_FILE                 | no       | Input markdown path                            |
+| INGEST_RUN_ID               | no       | Resume existing run by ID                      |
+| LOG_FILE                    | no       | Log output path (default: logs/ingest.log)     |
+| RETRIEVE_LIMIT              | no       | Max search results (default: 20)               |
+| RETRIEVE_PRELIMIT           | no       | Pre-diversity result count (default: 200)      |
+| RETRIEVE_LIMIT_PER_DOCUMENT | no       | Diversity cap per doc (default: 3)             |
+| RETRIEVE_BM25_WEIGHTS       | no       | BM25 weights text/heading/section/tags (default: 1.0,2.5,2.0,3.5) |
+| RETRIEVE_ENABLE_PREFIXES    | no       | FTS prefix matching (default: true)            |
+| RETRIEVE_PREFIX_MIN_LEN     | no       | Min token length for prefix (default: 5)       |
+| RETRIEVE_DOC_TYPE_MODE      | no       | soft/hard doc_type filter (default: soft)      |
+| RETRIEVE_DEBUG              | no       | Enable retrieval debug output (default: false) |
 
 ---
 
 ## ENTRYPOINTS
-| TYPE   | PATH |
-|--------|------|
-| script | src/main/main.py |
+
+| TYPE   | PATH              |
+|--------|-------------------|
+| script | src/main/main.py  |
 
 ---
 
-## STRUCTURE (depth=2)
+## STRUCTURE (depth=2, store/ and pipelines/ expanded one level)
+
 ```
-src/
-  fsm/              # Framework core
-  commons/          # Shared logging utility
-  common/           # Shared parsers (schema_id)
-  pipelines/
-    ingest/         # 10-step markdown document ingest pipeline
-  store/
-    inmem/          # In-memory Store implementation
-    sql/            # SQLite Store stub
-  main/             # Entry point scripts
-tests/
-  fixtures/
-    ingest/         # Markdown fixture files + expected YAML outputs
+├── src/
+│   ├── common/
+│   ├── fsm/
+│   ├── main/
+│   ├── pipelines/
+│   │   ├── ingest/
+│   │   └── retrieval/
+│   └── store/
+│       ├── file/
+│       ├── inmem/
+│       └── sql/
+├── tests/
+│   ├── fixtures/
+│   ├── parsers/
+│   └── retrieval/
+├── config/
+└── docs/
 ```
 
 ---
 
 ## MODULES
-| MODULE          | PATH                  | PURPOSE                                           | AI_TASK        |
-|-----------------|-----------------------|---------------------------------------------------|----------------|
-| fsm-core        | src/fsm/              | RunContext, SagaStep, SagaDefinition, Saga, SagaRunner | BUSINESS_LOGIC |
-| fsm-models      | src/fsm/models.py     | Base Pydantic classes SagaInput, SagaData         | DATA_MODELS    |
-| pipeline-ingest | src/pipelines/ingest/ | S0–S10: markdown ingest; S8–S10 persist to SQLite  | BUSINESS_LOGIC |
-| store-protocol  | src/store/store.py    | Store Protocol + SavedProgress TypedDict          | INFRA          |
-| store-inmem     | src/store/inmem/      | In-memory Store implementation for testing        | INFRA          |
-| store-sql       | src/store/sql/        | SqlStore (checkpoint) + SqliteKnowledgeStore (docs/chunks/FTS) | INFRA |
-| knowledge-store | src/store/knowledge_store.py | KnowledgeStore Protocol, ChunkSearchResult | INFRA     |
-| commons         | src/commons/          | Logging setup utility                             | DEV_TOOLING    |
-| common-utils    | src/common/           | Shared parsers (schema_id extractor)              | BUSINESS_LOGIC |
-| entrypoint      | src/main/             | Ingest pipeline entry point script                | CLI_AUTOMATION |
-| ingest-fixtures | tests/fixtures/ingest/| Markdown inputs + expected YAML for ingest tests  | TESTS          |
+
+| MODULE              | PATH                               | PURPOSE                                              | AI_TASK        |
+|---------------------|------------------------------------|------------------------------------------------------|----------------|
+| fsm-core            | src/fsm/                           | RunContext, SagaStep, SagaDefinition, Saga, SagaRunner | BUSINESS_LOGIC |
+| fsm-models          | src/fsm/models.py                  | SagaInput, SagaData base Pydantic classes            | DATA_MODELS    |
+| ingest-pipeline     | src/pipelines/ingest/              | 10-step markdown document indexing (S0–S9)           | BUSINESS_LOGIC |
+| ingest-steps        | src/pipelines/ingest/steps/        | S0–S9 individual step implementations                | BUSINESS_LOGIC |
+| ingest-parsers      | src/pipelines/ingest/parsers/      | markdown-it-py token parser                          | BUSINESS_LOGIC |
+| retrieval-pipeline  | src/pipelines/retrieval/           | 8-step FTS5 query pipeline (R0–R7 implemented)       | BUSINESS_LOGIC |
+| retrieval-steps     | src/pipelines/retrieval/steps/     | R0–R7 individual step implementations                | BUSINESS_LOGIC |
+| store-protocols     | src/store/                         | Store, KnowledgeStore, FileStore protocols           | INFRA          |
+| store-sql           | src/store/sql/                     | SqliteKnowledgeStore + SqlStore (aiosqlite + FTS5)   | INFRA          |
+| store-inmem         | src/store/inmem/                   | In-memory SagaStore for tests                        | INFRA          |
+| store-file          | src/store/file/                    | LocalFileStore (source file persistence)             | INFRA          |
+| common              | src/common/                        | normalize_text, logging setup, schema_id parser      | BUSINESS_LOGIC |
+| main-entrypoint     | src/main/                          | Ingest pipeline runner script                        | CLI_AUTOMATION |
+| tests-retrieval     | tests/retrieval/                   | Retrieval pipeline and FTS query tests               | TESTS          |
+| tests-parsers       | tests/parsers/                     | Markdown parser unit tests                           | TESTS          |
+| tests-fixtures      | tests/fixtures/                    | Markdown fixtures + expected YAML outputs            | TESTS          |
 
 ---
 
 ## FLOWS
-(skip - single linear step-based runner; no middleware layers)
+
+### Ingest Pipeline (S0–S9)
+
+| STEP | FROM               | TO                 | PURPOSE                           | NOTES                                               |
+|------|--------------------|--------------------|-----------------------------------|-----------------------------------------------------|
+| 1    | IngestInput        | LoadSource         | Read markdown file from disk      | src/pipelines/ingest/steps/load_source.py           |
+| 2    | LoadSource         | PreprocessText     | NFKC normalize, compute SHA256    | src/pipelines/ingest/steps/preprocess_text.py       |
+| 3    | PreprocessText     | DetectTargetSchema | Match category from first line    | src/pipelines/ingest/steps/detect_target_schema.py  |
+| 4    | DetectTargetSchema | ChunkifyBlocks     | Parse → section path → chunks     | src/pipelines/ingest/steps/chunkify_blocks.py       |
+| 5    | ChunkifyBlocks     | Tagging            | Add tags_text to each chunk       | src/pipelines/ingest/steps/tagging.py               |
+| 6    | Tagging            | PersistChunks      | Upsert chunks + sync FTS5 atomically | src/pipelines/ingest/steps/persist_chunks.py     |
+
+### Retrieval Pipeline (R0–R7)
+
+| STEP | FROM             | TO               | PURPOSE                            | NOTES                                               |
+|------|------------------|------------------|------------------------------------|-----------------------------------------------------|
+| 1    | RetrieveRequest  | NormalizeQuery   | NFKC + lowercase + ё→е             | src/pipelines/retrieval/steps/normalize_query.py    |
+| 2    | NormalizeQuery   | ClassifyIntent   | Keyword-prefix intent heuristic    | src/pipelines/retrieval/steps/classify_intent.py    |
+| 3    | ClassifyIntent   | BuildFtsQuery    | Expand aliases → FTS5 MATCH expr   | src/pipelines/retrieval/steps/build_fts_query.py    |
+| 4    | BuildFtsQuery    | SearchChunks     | BM25 + diversity search            | src/pipelines/retrieval/steps/search_chunks.py      |
+| 5    | SearchChunks     | GroupByDocument  | Group chunks by document_id        | src/pipelines/retrieval/steps/group_by_document.py  |
+| 6    | GroupByDocument  | OptionalEnrich   | Load raw_text if include_full_docs | src/pipelines/retrieval/steps/optional_enrich.py    |
 
 ---
 
 ## DATA_ENTITIES
-| CONTRACT                    | PURPOSE |
-|-----------------------------|---------|
-| RunContext[TIn, TData]      | Execution context: run_id, cursor, input, data |
-| SagaStep[TIn, TData]        | Protocol for a pipeline step: id, desc, async run(ctx) |
-| SagaDefinition[TIn, TData]  | Named ordered list of SagaSteps |
-| Saga[TIn, TData]            | Stateless executor; iterates steps from cursor; fires pre/post callbacks |
-| SagaRunner[TIn, TData]      | Orchestrator: load/create context, run Saga, save checkpoint after each step |
-| Store (Protocol)            | Async load/save interface for SavedProgress |
-| SavedProgress (TypedDict)   | Serialised checkpoint: run_id, saga_name, cursor, state dict |
-| SagaInput (BaseModel)       | Base class for pipeline input types |
-| SagaData (BaseModel)        | Base class for pipeline state data types |
-| IngestInput                 | Ingest pipeline input: source_path |
-| IngestData                  | Ingest pipeline state: raw_content through tokens, chunks, to document_id |
-| IngestError                 | Domain exception with error code (E_READ_FAIL, E_NO_SCHEMA_ID, etc.) |
-| KnowledgeStore (Protocol)   | save_document, replace_document_chunks, search_chunks |
-| ChunkSearchResult           | BM25 search hit: chunk_id, text, section_path, source_path, rank |
-| ChunkTagged                 | TypedDict: Chunk + tags_text (output of S7 Tagging) |
-| DocType / ChunkKind         | Literals: lab/diagnostic/consultation; table/list/fact/section |
+
+| ENTITY                     | PURPOSE                                                   |
+|----------------------------|-----------------------------------------------------------|
+| SagaStep                   | Protocol: id, desc, async run(ctx)                        |
+| SagaDefinition             | Named ordered list of SagaStep instances                  |
+| RunContext                 | Per-run state: run_id, cursor, input, data                |
+| SagaData                   | Base Pydantic model for pipeline state                    |
+| SagaInput                  | Base Pydantic model for pipeline input                    |
+| Store                      | Protocol: load/save SavedProgress checkpoints             |
+| SavedProgress              | TypedDict: run_id, saga_name, cursor, state               |
+| KnowledgeStore             | Protocol: save_document, replace_chunks, search_chunks, get_documents_raw_text |
+| FileStore                  | Protocol: save_source to file storage                     |
+| ChunkSearchResult          | FTS5 BM25 search hit with rank (frozen dataclass)         |
+| IngestInput                | source_path for ingest pipeline                           |
+| IngestData                 | Ingest pipeline state S0–S9                               |
+| ChunkTagged                | Chunk + tags_text (output of S7 Tagging)                  |
+| RetrieveRequest            | Query + filters + limits for retrieval                    |
+| RetrievalData              | Retrieval pipeline state R0–R7                            |
+| IntentInfo                 | Intent detection: detected_type, confidence, keywords     |
+| DocumentEvidence           | Grouped search result: doc metadata + chunks + full_text  |
 
 ---
 
 ## KEY_FILES
-| FILE | PURPOSE | RELATED_MODULES |
-|------|---------|-----------------|
-| pyproject.toml | Project metadata, deps, pytest/ruff/mypy config | all |
-| src/fsm/core.py | Core contracts: RunContext, SagaStep, SagaDefinition | fsm-core |
-| src/fsm/saga.py | Stateless Saga executor with pre/post callbacks | fsm-core |
-| src/fsm/saga_runner.py | Orchestrator: checkpoint load/save/resume | fsm-core, store-protocol |
-| src/fsm/models.py | SagaInput, SagaData base Pydantic models | fsm-models |
-| src/store/store.py | Store Protocol + SavedProgress TypedDict | store-protocol |
-| src/store/inmem/inmemory_store.py | In-memory Store implementation | store-inmem |
-| src/store/sql/sql_store.py | SQLite Store stub (unimplemented) | store-sql |
-| src/pipelines/ingest/models.py | IngestInput, IngestData, MdToken, BlockEvent, Chunk, IngestError | pipeline-ingest |
-| src/pipelines/ingest/steps/__init__.py | Exports all 10 ingest step classes | pipeline-ingest |
-| src/commons/logging_config.py | setup_logging(); respects LOG_FILE env var | commons |
-| src/store/knowledge_store.py | KnowledgeStore Protocol, ChunkSearchResult, DocType, ChunkKind | knowledge-store |
-| src/store/sql/sqlite_knowledge_store.py | SqliteKnowledgeStore: aiosqlite, FTS5, replace_document_chunks | store-sql |
-| src/store/sql/schema.sql | DDL: documents, chunks (chunk_pk PK), chunks_fts (FTS5 content table) | store-sql |
-| src/main/main.py | Ingest pipeline entry point; wires definition, store, runner | entrypoint |
 
-<!-- updated 2026-05-17: added knowledge-store and schema.sql key files -->
+| FILE                                         | PURPOSE                                    | RELATED_MODULES                     |
+|----------------------------------------------|--------------------------------------------|-------------------------------------|
+| pyproject.toml                               | Dependencies, tool config (ruff/mypy/pytest)| all                                |
+| src/main/main.py                             | Ingest pipeline entrypoint                 | ingest-pipeline, store-sql          |
+| src/fsm/core.py                              | RunContext, SagaStep, SagaDefinition       | fsm-core, all pipelines             |
+| src/fsm/saga_runner.py                       | Checkpointing orchestrator (resume)        | fsm-core, store-protocols           |
+| src/fsm/saga.py                              | Stateless step executor                    | fsm-core, retrieval-pipeline        |
+| src/fsm/models.py                            | SagaInput, SagaData base classes           | all pipelines                       |
+| src/store/store.py                           | Store Protocol + SavedProgress             | store-sql, store-inmem, fsm-core    |
+| src/store/knowledge_store.py                 | KnowledgeStore Protocol + ChunkSearchResult| store-sql, ingest-steps, retrieval-steps |
+| src/store/filestore.py                       | FileStore Protocol                         | store-file, ingest-steps            |
+| src/store/sql/schema.sql                     | SQLite DDL: documents, chunks, FTS5, saga_progress | store-sql               |
+| src/store/sql/sqlite_knowledge_store.py      | SqliteKnowledgeStore: FTS5, BM25, raw_text fetch | store-sql                     |
+| src/pipelines/ingest/models.py               | IngestInput, IngestData, ChunkTagged, IngestError | ingest-pipeline            |
+| src/pipelines/ingest/steps/__init__.py       | Re-exports all 10 ingest step classes      | ingest-pipeline                     |
+| src/pipelines/retrieval/models.py            | RetrieveRequest, RetrievalData, DocumentEvidence | retrieval-pipeline          |
+| src/pipelines/retrieval/runner.py            | RetrievalRunner (wires R0–R7)              | retrieval-pipeline, store-sql       |
+| src/pipelines/retrieval/config.py            | RetrievalConfig + from_env()               | retrieval-pipeline                  |
+| src/pipelines/retrieval/steps/__init__.py    | Re-exports all 8 retrieval step classes    | retrieval-pipeline                  |
+| src/common/normalizer.py                     | normalize_text(): shared by ingest + retrieval | common, ingest-steps, retrieval-steps |
+| config/categories.yaml                       | Allowed document categories                | ingest-steps                        |
+| config/aliases.yaml                          | Query term alias expansions                | retrieval-steps                     |
 
 ---
 
 ## CONVENTIONS
-| RULE | SOURCE |
-|------|--------|
-| Generic names: TIn (input type), TData (state type) | src/fsm/core.py |
-| Pipeline state field is ctx.data, NOT ctx.state | src/fsm/core.py |
-| SagaStep is a Protocol — use structural subtyping, not inheritance | src/fsm/core.py |
-| Step classes declare ClassVar id/desc; implement async run(ctx) | src/fsm/core.py |
-| Strict mypy; ruff E,F,I,B,UP; line-length 100; asyncio_mode=auto | pyproject.toml |
+
+| RULE                                                          | SOURCE              |
+|---------------------------------------------------------------|---------------------|
+| mypy strict — all functions fully typed, no implicit Optional | pyproject.toml      |
+| ruff B+UP enforced — no bugbear patterns, modern Python idioms| pyproject.toml      |
+| Pipeline state accessed as ctx.data (not ctx.state)          | src/fsm/core.py     |
+| Generic params: TIn (input type), TData (pipeline state type) | src/fsm/core.py    |
+| FTS5 sync is always atomic inside PersistChunks (S9)         | src/store/sql/sqlite_knowledge_store.py |
 
 ---
 
-<!-- Generated: 2026-05-15 -->
-<!-- Updated: 2026-05-17: DB_PATH env var; knowledge-store module; KnowledgeStore/ChunkSearchResult/ChunkTagged entities; schema.sql key files; store-sql description updated -->
+<!-- Generated: 2026-05-17 -->
