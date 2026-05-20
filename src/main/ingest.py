@@ -38,7 +38,7 @@ async def init_schema(db_path: str) -> None:
 
 
 async def main() -> None:
-    """Document ingestion pipeline: process markdown files for FTS5 indexing (10 steps)"""
+    """Runner for Document ingestion pipeline: process markdown files for FTS5 indexing (10 steps)"""
 
     log_file = os.getenv("LOG_FILE", "logs/ingest.log")
     setup_logging(level=logging.DEBUG, log_file=log_file)

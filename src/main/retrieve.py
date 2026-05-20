@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CLI for retrieval pipeline debugging."""
+"""Runner for retrieval pipeline debug."""
 
 import asyncio
 import json
