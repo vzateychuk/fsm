@@ -11,6 +11,15 @@ ChunkKind = Literal["table", "list", "fact", "section"]
 
 
 @dataclass(frozen=True, slots=True)
+class DocumentMetadata:
+    document_id: str
+    source_path: str
+    category: Category
+    document_date: str  # ISO format YYYY-MM-DD
+    indexed_at: str
+
+
+@dataclass(frozen=True, slots=True)
 class ChunkSearchResult:
     chunk_id: str
     document_id: str
@@ -34,6 +43,7 @@ class KnowledgeStore(Protocol):
         source_sha256: str,
         category: Category,
         indexed_at: str,
+        document_date: str,
         raw_text: str,
     ) -> None: ...
 
@@ -78,5 +88,18 @@ class KnowledgeStore(Protocol):
         Used by R7 OptionalEnrich to load surrounding context for a matched chunk.
         Returned chunks have rank=0.0 (positional retrieval, not BM25-ranked).
         The matched chunk itself is included in the result.
+        """
+        ...
+
+    async def list_documents_by_date(
+        self,
+        *,
+        limit: int = 5,
+        category: Category | None = None,
+    ) -> list[DocumentMetadata]:
+        """Return most recent documents ordered by document_date (with indexed_at fallback).
+
+        Returns up to `limit` documents, optionally filtered by category.
+        Sorted by COALESCE(document_date, indexed_at) DESC (most recent first).
         """
         ...

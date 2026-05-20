@@ -209,7 +209,7 @@ Store не выполняет нормализацию, alias-expansion и prefi
 
 Управляется параметрами запроса:
 
-- `context_window > 0`: для каждого выбранного чанка загрузить соседние чанки (`chunk_no ± context_window`) из той же таблицы `chunks`. В MVP не реализован.
+- `context_window > 0`: для каждого выбранного чанка загрузить соседние чанки (`chunk_no ± context_window`) из таблицы `chunks` через `KnowledgeStore.get_neighbor_chunks()`. Соседи (без самого найденного чанка) сохраняются в `DocumentEvidence.context_chunks[chunk_id]`. `rank` соседних чанков равен `0.0` — позиционное извлечение, не BM25.
 - `include_full_docs = True`: загрузить полный текст документа через `KnowledgeStore.get_documents_raw_text()` — читает `raw_text` из таблицы `documents` в SQLite. Результат записывается в `DocumentEvidence.full_text`.
 
 По умолчанию оба флага `False` — retrieval возвращает только релевантные чанки.

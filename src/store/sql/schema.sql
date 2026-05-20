@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS documents (
     source_sha256 TEXT NOT NULL,
     category TEXT NOT NULL,
     indexed_at TEXT NOT NULL,
+    document_date TEXT NOT NULL,
     raw_text TEXT NOT NULL
 );
 

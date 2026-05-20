@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 import aiosqlite
 
-from store.knowledge_store import Category, ChunkKind, ChunkSearchResult
+from store.knowledge_store import Category, ChunkKind, ChunkSearchResult, DocumentMetadata
 
 if TYPE_CHECKING:
     from pipelines.ingest.models import ChunkTagged
@@ -31,13 +31,14 @@ class SqliteKnowledgeStore:
         source_sha256: str,
         category: Category,
         indexed_at: str,
+        document_date: str,
         raw_text: str,
     ) -> None:
         async with aiosqlite.connect(self.db_path) as conn:
             await conn.execute(
-                "INSERT OR REPLACE INTO documents (id, source_path, source_sha256, category, indexed_at, raw_text)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
-                (document_id, source_path, source_sha256, category, indexed_at, raw_text),
+                "INSERT OR REPLACE INTO documents (id, source_path, source_sha256, category, indexed_at, document_date, raw_text)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (document_id, source_path, source_sha256, category, indexed_at, document_date, raw_text),
             )
             await conn.commit()
 
@@ -224,3 +225,38 @@ class SqliteKnowledgeStore:
                 break
 
         return results
+
+    async def list_documents_by_date(
+        self,
+        *,
+        limit: int = 5,
+        category: Category | None = None,
+    ) -> list[DocumentMetadata]:
+        query = (
+            "SELECT id, source_path, category, document_date, indexed_at"
+            " FROM documents"
+        )
+        params: list[Any] = []
+
+        if category:
+            query += " WHERE category = ?"
+            params.append(category)
+
+        query += " ORDER BY COALESCE(document_date, indexed_at) DESC LIMIT ?"
+        params.append(limit)
+
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+
+        return [
+            DocumentMetadata(
+                document_id=row["id"],
+                source_path=row["source_path"],
+                category=row["category"],
+                document_date=row["document_date"],
+                indexed_at=row["indexed_at"],
+            )
+            for row in rows
+        ]
