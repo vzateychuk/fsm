@@ -260,3 +260,40 @@ class SqliteKnowledgeStore:
             )
             for row in rows
         ]
+
+    async def get_document_chunks(
+        self,
+        document_id: str,
+        limit: int,
+    ) -> list[ChunkSearchResult]:
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(
+                "SELECT c.chunk_id, c.document_id, c.chunk_no, c.kind, c.text,"
+                " c.section_path, c.heading, c.tags_text,"
+                " d.source_path, d.category"
+                " FROM chunks c"
+                " JOIN documents d ON c.document_id = d.id"
+                " WHERE c.document_id = ?"
+                " ORDER BY c.chunk_no ASC"
+                " LIMIT ?",
+                (document_id, limit),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+        return [
+            ChunkSearchResult(
+                chunk_id=row["chunk_id"],
+                document_id=row["document_id"],
+                chunk_no=row["chunk_no"],
+                kind=row["kind"],
+                text=row["text"],
+                section_path=row["section_path"],
+                heading=row["heading"],
+                tags_text=row["tags_text"],
+                source_path=row["source_path"],
+                category=row["category"],
+                rank=0.0,
+            )
+            for row in rows
+        ]

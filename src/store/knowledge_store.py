@@ -103,3 +103,15 @@ class KnowledgeStore(Protocol):
         Sorted by COALESCE(document_date, indexed_at) DESC (most recent first).
         """
         ...
+
+    async def get_document_chunks(
+        self,
+        document_id: str,
+        limit: int,
+    ) -> list[ChunkSearchResult]:
+        """Return first N chunks of a document ordered by chunk_no (ascending).
+
+        Used by recency bundle to fetch initial chunks from recent documents.
+        Returned chunks have rank=0.0 (positional retrieval, not BM25-ranked).
+        """
+        ...
