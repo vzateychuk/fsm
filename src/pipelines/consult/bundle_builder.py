@@ -96,21 +96,25 @@ class KBContextBundleBuilder:
         self,
         chunks: list[ChunkSearchResult],
     ) -> list[ChunkSearchResult]:
-        """Truncate text by category rules.
+        """Truncate text by category rules, then by char limit.
 
+        Applies line truncation first (category-specific or default),
+        then char truncation if max_chunk_chars > 0.
         Returns new ChunkSearchResult objects with truncated text.
         """
         formatted: list[ChunkSearchResult] = []
         for chunk in chunks:
             max_lines = self._get_max_lines_for_category(chunk.category)
-            truncated_text = self._truncate_text_lines(chunk.text, max_lines)
+            text = self._truncate_text_lines(chunk.text, max_lines)
+            if self.config.excerpts.max_chunk_chars > 0:
+                text = self._truncate_text_chars(text, self.config.excerpts.max_chunk_chars)
             formatted.append(
                 ChunkSearchResult(
                     chunk_id=chunk.chunk_id,
                     document_id=chunk.document_id,
                     chunk_no=chunk.chunk_no,
                     kind=chunk.kind,
-                    text=truncated_text,
+                    text=text,
                     section_path=chunk.section_path,
                     heading=chunk.heading,
                     tags_text=chunk.tags_text,
@@ -125,12 +129,9 @@ class KBContextBundleBuilder:
     def _get_max_lines_for_category(self, category: str) -> int:
         """Get max lines allowed for a category.
 
-        - full_text_categories: return very large number (no truncation)
         - category_line_limits: return configured limit
         - default: return max_lines_default
         """
-        if category in self.config.excerpts.full_text_categories:
-            return 999_999
         if category in self.config.excerpts.category_line_limits:
             return self.config.excerpts.category_line_limits[category]
         return self.config.excerpts.max_lines_default
@@ -142,6 +143,22 @@ class KBContextBundleBuilder:
         if len(lines) <= max_lines:
             return text
         return "\n".join(lines[:max_lines])
+
+    @staticmethod
+    def _truncate_text_chars(text: str, max_chars: int) -> str:
+        """Truncate text to max_chars characters.
+
+        Cuts at the last newline boundary within the limit to avoid
+        splitting a list item or sentence in the middle.
+        If no newline found within limit, cuts at max_chars directly.
+        """
+        if len(text) <= max_chars:
+            return text
+        cut = text[:max_chars]
+        last_newline = cut.rfind("\n")
+        if last_newline > 0:
+            return cut[:last_newline]
+        return cut
 
     def _truncate_to_char_limit(
         self,

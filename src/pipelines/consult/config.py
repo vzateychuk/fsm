@@ -153,7 +153,7 @@ class LLMConfig:
 class ExcerptsConfig:
     """Configuration for excerpt formatting (C2 step — BuildBundle).
     Text excerpts are truncated based on their category to save context while preserving the most informative content.
-    These parameters control which categories get full text vs. truncated text, and how aggressively to truncate.
+    All categories are subject to line truncation — either via category_line_limits or max_lines_default.
     """
     top_chunks_count: int
     """Number of highest-ranked chunks to promote to 'Top Chunks' section in the prompt.
@@ -167,13 +167,14 @@ class ExcerptsConfig:
     """Default line limit for categories without explicit limits.
     Applied when truncating kb_excerpts section chunks.
     """
-    full_text_categories: list[str] = field(default_factory=list)
-    """Categories that should never be line-truncated (always show full text).
-    Examples: 'Консультация', 'Выписка' — critical content that should not be cut.
+    max_chunk_chars: int = 0
+    """Maximum characters per chunk in the prompt. Applied after line truncation.
+    0 means no limit. Truncates at the last word boundary within the limit.
+    Independent of max_section_chars (ingest-level) — controls display only.
     """
     category_line_limits: dict[str, int] = field(default_factory=dict)
     """Per-category line limits for truncation.
-    Examples: {'Диагноз': 60, 'Анализы': 60}.
+    Examples: {'Диагноз': 60, 'Анализы': 60, 'Консультация': 60}.
     Categories not in this dict fall back to max_lines_default.
     """
 

@@ -74,7 +74,7 @@ class ChunkifyBlocks:
     id: ClassVar[str] = "chunkify_blocks"
     desc: ClassVar[str] = "Convert markdown blocks into typed chunks with breadcrumb context"
 
-    max_section_chars: int = 4000
+    max_section_chars: int
     admin_headings: frozenset[str] = frozenset()
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:

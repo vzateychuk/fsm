@@ -15,8 +15,11 @@ class IngestConfig:
     Attributes:
         admin_section_headings: Set of normalized headings that mark administrative sections.
                                These chunks get kind="meta" during ChunkifyBlocks.
+        max_section_chars: Maximum characters per section chunk before splitting at paragraph
+                          boundaries. Does not apply to list/table/fact chunks.
     """
     admin_section_headings: frozenset[str]
+    max_section_chars: int = 4000
 
     @classmethod
     def load(cls, config_path: Path) -> IngestConfig:
@@ -26,5 +29,6 @@ class IngestConfig:
 
         headings = data.get("admin_section_headings", [])
         return cls(
-            admin_section_headings=frozenset(headings)
+            admin_section_headings=frozenset(headings),
+            max_section_chars=data.get("max_section_chars", 4000),
         )
