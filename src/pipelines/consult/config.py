@@ -9,6 +9,7 @@ Each config subclass handles a specific aspect of the consultation pipeline:
 from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
+import typing as t
 import yaml
 
 
@@ -111,8 +112,16 @@ class LLMConfig:
     """Top-p (nucleus) sampling parameter."""
     max_tokens: int = 8192
     """Maximum number of tokens to generate."""
+    max_retries: int = 1
+    """Number of retries on transient API errors."""
     num_ctx: int = 16384
     """Context window size for model."""
+    stream: bool = False
+    """Whether to stream the response."""
+    enable_thinking: bool = False
+    """Enable chain-of-thought / thinking mode (e.g. NVIDIA chat_template_kwargs)."""
+    additional_request_kwargs: dict[str, t.Any] = field(default_factory=dict)
+    """Extra provider-specific request parameters merged into the API call."""
 
     @classmethod
     def load(cls, config_path: Path) -> "LLMConfig":
@@ -132,7 +141,11 @@ class LLMConfig:
             temperature=data.get("temperature", 0.1),
             top_p=data.get("top_p", 0.9),
             max_tokens=data.get("max_tokens", 8192),
+            max_retries=data.get("max_retries", 1),
             num_ctx=data.get("num_ctx", 16384),
+            stream=data.get("stream", False),
+            enable_thinking=data.get("enable_thinking", False),
+            additional_request_kwargs=data.get("additional_request_kwargs", {}),
         )
 
 

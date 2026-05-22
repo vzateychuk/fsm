@@ -45,12 +45,7 @@ def consult(
     if env == "test":
         llm_client: MockLLMClient | OpenAICompatibleClient = MockLLMClient()
     else:
-        llm_client = OpenAICompatibleClient(
-            base_url=llm_config.base_url,
-            api_key=llm_config.api_key,
-            model=llm_config.model,
-            timeout=llm_config.timeout,
-        )
+        llm_client = OpenAICompatibleClient(config=llm_config)
 
     runner = ConsultRunner(
         retrieval_runner=retrieval_runner,

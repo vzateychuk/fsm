@@ -169,4 +169,4 @@ class KBContextBundleBuilder:
         Placed inline before the chunk text so LLM directly associates text with source.
         """
         section = chunk.section_path or "(no section)"
-        return f"[{index}] {chunk.document_id}#chunk_{chunk.chunk_no} | {chunk.source_path} | {chunk.document_date} | {chunk.category} | {section}"
+        return f"[{index}] {chunk.document_id}#chunk_{chunk.chunk_no} | {chunk.document_date} | {chunk.category} | {section}"
