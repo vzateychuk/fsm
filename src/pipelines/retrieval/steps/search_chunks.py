@@ -70,30 +70,3 @@ class SearchChunks:
             prelimit=ctx.input.prelimit,
             bm25_weights=self.config.bm25_weights,
         )
-
-        if self.config.debug:
-            ctx.data.debug["search_chunks"] = {
-                "fts_query": ctx.data.fts_match or "",
-                "category_mode": self.config.category_mode,
-                "category_filter_applied": category,
-                "diversity_limit_per_doc": ctx.input.limit_per_document,
-                "final_limit": ctx.input.limit,
-                "prelimit": ctx.input.prelimit,
-                "results_count": len(ctx.data.final_chunks),
-                "top_rank": ctx.data.final_chunks[0].rank if ctx.data.final_chunks else None,
-                "results_by_doc": {},
-            }
-            # Count results per document for debug
-            by_doc = {}
-            for chunk in ctx.data.final_chunks:
-                by_doc.setdefault(chunk.document_id, 0)
-                by_doc[chunk.document_id] += 1
-            ctx.data.debug["search_chunks"]["results_by_doc"] = by_doc
-            logger.debug(
-                "[R5] search_chunks: fts=%r category=%r results=%d top_rank=%s by_doc=%s",
-                ctx.data.fts_match or "",
-                category,
-                len(ctx.data.final_chunks),
-                ctx.data.final_chunks[0].rank if ctx.data.final_chunks else None,
-                by_doc,
-            )

@@ -49,7 +49,10 @@ class OpenAICompatibleClient:
         """
         try:
             messages = [
-                {"role": msg.role, "content": msg.content}
+                {
+                    "role": msg.role,
+                    "content": msg.content
+                }
                 for msg in req.messages
             ]
             response = await self.client.chat.completions.create(

@@ -44,9 +44,3 @@ class ClassifyIntent:
             )
         else:
             ctx.data.intent = None
-
-        if self.config.debug:
-            ctx.data.debug["intent"] = {
-                "category": ctx.input.category,
-                "intent_set": ctx.data.intent is not None,
-            }

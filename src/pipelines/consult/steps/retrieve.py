@@ -6,6 +6,7 @@ from typing import ClassVar
 from src.fsm.core import RunContext
 from src.pipelines.consult.config import ConsultConfig
 from src.pipelines.consult.models import ConsultData, ConsultRequest
+from src.pipelines.retrieval.config import RetrievalConfig
 from src.pipelines.retrieval.models import RetrieveRequest
 from src.pipelines.retrieval.runner import RetrievalRunner
 from src.store.knowledge_store import KnowledgeStore
@@ -20,42 +21,45 @@ class Retrieve:
     def __init__(
         self,
         retrieval_runner: RetrievalRunner,
+        retrieval_config: RetrievalConfig,
         store: KnowledgeStore,
-        config: ConsultConfig,
+        consult_config: ConsultConfig,
     ) -> None:
         self.retrieval_runner = retrieval_runner
+        self.retrieval_config = retrieval_config
         self.store = store
-        self.config = config
+        self.consult_config = consult_config
 
-    async def run(self, ctx: RunContext[ConsultRequest, ConsultData]) -> None:
+    async def run(self, runCtx: RunContext[ConsultRequest, ConsultData]) -> None:
         # Query bundle: BM25-ranked retrieval
         retrieve_request = RetrieveRequest(
-            query=ctx.data.user_request,
-            limit=self.config.retrieval.query_top_k,
-            limit_per_document=self.config.retrieval.query_limit_per_document,
+            query=runCtx.data.user_request,
+            limit=self.consult_config.retrieval.query_top_k,
+            limit_per_document=self.consult_config.retrieval.query_limit_per_document,
+            prelimit=self.retrieval_config.prelimit,
         )
         retrieve_response = await self.retrieval_runner.run(retrieve_request)
-        ctx.data.query_chunks = retrieve_response.chunks
+        runCtx.data.query_chunks = retrieve_response.chunks
 
         # Recency bundle: fresh documents + their first chunks
         today = date.today().isoformat()
         cutoff = (
-            date.today() - timedelta(days=self.config.recency.max_age_days)
+            date.today() - timedelta(days=self.consult_config.recency.max_age_days)
         ).isoformat()
 
         recent_docs_all = await self.store.list_documents_by_date(
-            limit=self.config.recency.db_fetch_limit
+            limit=self.consult_config.recency.db_fetch_limit
         )
 
         recent_docs = [
             d
             for d in recent_docs_all
             if d.document_date and cutoff <= d.document_date <= today
-        ][: self.config.recency.max_docs]
+        ][: self.consult_config.recency.max_docs]
 
         for doc in recent_docs:
             chunks = await self.store.get_document_chunks(
                 doc.document_id,
-                self.config.recency.chunks_per_doc,
+                self.consult_config.recency.chunks_per_doc,
             )
-            ctx.data.recency_chunks.extend(chunks)
+            runCtx.data.recency_chunks.extend(chunks)

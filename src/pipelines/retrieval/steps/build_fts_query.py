@@ -37,10 +37,4 @@ class BuildFtsQuery:
 
     async def run(self, ctx: RunContext[RetrieveRequest, RetrievalData]) -> None:
         ctx.data.fts_match = build_fts_match(ctx.data.expanded_terms, self.config)
-        if self.config.debug:
-            ctx.data.debug["fts_match"] = {
-                "query": ctx.data.fts_match,
-                "enable_prefixes": self.config.enable_prefixes,
-                "prefix_min_len": self.config.prefix_min_len,
-            }
 

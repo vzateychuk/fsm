@@ -77,7 +77,6 @@ class RetrieveResponse:
     fts_match: str
     chunks: list[ChunkSearchResult]
     documents: list[DocumentEvidence]
-    debug: dict[str, object] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -166,6 +165,3 @@ class RetrievalData(SagaData):
 
     # R6 GroupByDocument
     documents: list[DocumentEvidence] = Field(default_factory=list)
-
-    # All steps — populated when RETRIEVE_DEBUG=true
-    debug: dict[str, object] = Field(default_factory=dict)

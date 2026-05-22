@@ -12,7 +12,7 @@ class LoadRequest:
     id: ClassVar[str] = "load_request"
     desc: ClassVar[str] = "C0: Load request into state"
 
-    async def run(self, ctx: RunContext[ConsultRequest, ConsultData]) -> None:
-        request: ConsultRequest = ctx.input
-        ctx.data.user_request = request.user_request
-        ctx.data.desc = self.desc
+    async def run(self, runCtx: RunContext[ConsultRequest, ConsultData]) -> None:
+        request: ConsultRequest = runCtx.input
+        runCtx.data.user_request = request.user_request
+        runCtx.data.desc = self.desc

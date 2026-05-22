@@ -31,6 +31,7 @@ class ChunkSearchResult:
     tags_text: str | None
     source_path: str
     category: Category
+    document_date: str  # ISO format YYYY-MM-DD
     rank: float  # bm25, lower is better
 
 

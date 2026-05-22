@@ -113,9 +113,9 @@ async def test_db() -> str:
 async def test_consult_pipeline_end_to_end(test_db: str) -> None:
     """Integration test: end-to-end consultation with mock LLM."""
     config = ConsultConfig.load("config/consult.yaml")
-    retrieval_config = RetrievalConfig.from_env()
-
     store = SqliteKnowledgeStore(db_path=test_db)
+
+    retrieval_config = RetrievalConfig.load(Path("config/retrieve.yaml"))
     retrieval_runner = RetrievalRunner(store, retrieval_config)
 
     mock_llm = MockLLMClient(fixed_response="Test medical answer from LLM.")
@@ -123,9 +123,10 @@ async def test_consult_pipeline_end_to_end(test_db: str) -> None:
 
     runner = ConsultRunner(
         retrieval_runner=retrieval_runner,
+        retrieval_config=retrieval_config,
         store=store,
         llm_client=mock_llm,
-        config=config,
+        consult_config=config,
         prompts_dir=prompts_dir,
     )
 
@@ -143,9 +144,9 @@ async def test_consult_pipeline_end_to_end(test_db: str) -> None:
 async def test_consult_pipeline_recency_filter(test_db: str) -> None:
     """Test that old documents are filtered out by date."""
     config = ConsultConfig.load("config/consult.yaml")
-    retrieval_config = RetrievalConfig.from_env()
-
     store = SqliteKnowledgeStore(db_path=test_db)
+
+    retrieval_config = RetrievalConfig.load(Path("config/retrieve.yaml"))
     retrieval_runner = RetrievalRunner(store, retrieval_config)
 
     mock_llm = MockLLMClient(fixed_response="Mock answer")
@@ -153,9 +154,10 @@ async def test_consult_pipeline_recency_filter(test_db: str) -> None:
 
     runner = ConsultRunner(
         retrieval_runner=retrieval_runner,
+        retrieval_config=retrieval_config,
         store=store,
         llm_client=mock_llm,
-        config=config,
+        consult_config=config,
         prompts_dir=prompts_dir,
     )
 
@@ -169,9 +171,9 @@ async def test_consult_pipeline_recency_filter(test_db: str) -> None:
 async def test_consult_pipeline_bundle_assembly(test_db: str) -> None:
     """Test that bundle is properly assembled with top_chunks and kb_excerpts."""
     config = ConsultConfig.load("config/consult.yaml")
-    retrieval_config = RetrievalConfig.from_env()
-
     store = SqliteKnowledgeStore(db_path=test_db)
+
+    retrieval_config = RetrievalConfig.load(Path("config/retrieve.yaml"))
     retrieval_runner = RetrievalRunner(store, retrieval_config)
 
     mock_llm = MockLLMClient(fixed_response="Mock")
@@ -179,9 +181,10 @@ async def test_consult_pipeline_bundle_assembly(test_db: str) -> None:
 
     runner = ConsultRunner(
         retrieval_runner=retrieval_runner,
+        retrieval_config=retrieval_config,
         store=store,
         llm_client=mock_llm,
-        config=config,
+        consult_config=config,
         prompts_dir=prompts_dir,
     )
 
@@ -197,9 +200,9 @@ async def test_consult_pipeline_bundle_assembly(test_db: str) -> None:
 async def test_consult_pipeline_empty_retrieval(test_db: str) -> None:
     """Test pipeline with empty retrieval results."""
     config = ConsultConfig.load("config/consult.yaml")
-    retrieval_config = RetrievalConfig.from_env()
-
     store = SqliteKnowledgeStore(db_path=test_db)
+
+    retrieval_config = RetrievalConfig.load(Path("config/retrieve.yaml"))
     retrieval_runner = RetrievalRunner(store, retrieval_config)
 
     mock_llm = MockLLMClient(fixed_response="No results found")
@@ -207,9 +210,10 @@ async def test_consult_pipeline_empty_retrieval(test_db: str) -> None:
 
     runner = ConsultRunner(
         retrieval_runner=retrieval_runner,
+        retrieval_config=retrieval_config,
         store=store,
         llm_client=mock_llm,
-        config=config,
+        consult_config=config,
         prompts_dir=prompts_dir,
     )
 

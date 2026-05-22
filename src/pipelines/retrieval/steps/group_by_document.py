@@ -49,17 +49,3 @@ class GroupByDocument:
             groups[chunk.document_id].chunks.append(chunk)
 
         ctx.data.documents = list(groups.values())
-
-        # Add debug info about grouping
-        if "search_chunks" in ctx.data.debug:
-            ctx.data.debug["group_by_document"] = {
-                "documents_count": len(ctx.data.documents),
-                "docs_with_chunks": [
-                    {
-                        "document_id": doc.document_id,
-                        "category": doc.category,
-                        "chunks_count": len(doc.chunks),
-                    }
-                    for doc in ctx.data.documents
-                ],
-            }

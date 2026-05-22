@@ -126,7 +126,7 @@ class SqliteKnowledgeStore:
             async with conn.execute(
                 "SELECT c.chunk_id, c.document_id, c.chunk_no, c.kind, c.text,"
                 " c.section_path, c.heading, c.tags_text,"
-                " d.source_path, d.category"
+                " d.source_path, d.category, d.document_date"
                 " FROM chunks c"
                 " JOIN documents d ON c.document_id = d.id"
                 " WHERE c.document_id = ? AND c.chunk_no BETWEEN ? AND ?"
@@ -146,6 +146,7 @@ class SqliteKnowledgeStore:
                 tags_text=row["tags_text"],
                 source_path=row["source_path"],
                 category=row["category"],
+                document_date=row["document_date"],
                 rank=0.0,
             )
             for row in rows
@@ -168,7 +169,7 @@ class SqliteKnowledgeStore:
         sql = (
             "SELECT c.chunk_id, c.document_id, c.chunk_no, c.kind, c.text,"
             " c.section_path, c.heading, c.tags_text,"
-            " d.source_path, d.category, bm25(chunks_fts, ?, ?, ?, ?) AS rank"
+            " d.source_path, d.category, d.document_date, bm25(chunks_fts, ?, ?, ?, ?) AS rank"
             " FROM chunks_fts"
             " JOIN chunks c ON chunks_fts.rowid = c.chunk_pk"
             " JOIN documents d ON c.document_id = d.id"
@@ -218,6 +219,7 @@ class SqliteKnowledgeStore:
                     tags_text=row["tags_text"],
                     source_path=row["source_path"],
                     category=row["category"],
+                    document_date=row["document_date"],
                     rank=row["rank"],
                 )
             )
@@ -271,7 +273,7 @@ class SqliteKnowledgeStore:
             async with conn.execute(
                 "SELECT c.chunk_id, c.document_id, c.chunk_no, c.kind, c.text,"
                 " c.section_path, c.heading, c.tags_text,"
-                " d.source_path, d.category"
+                " d.source_path, d.category, d.document_date"
                 " FROM chunks c"
                 " JOIN documents d ON c.document_id = d.id"
                 " WHERE c.document_id = ?"
@@ -293,6 +295,7 @@ class SqliteKnowledgeStore:
                 tags_text=row["tags_text"],
                 source_path=row["source_path"],
                 category=row["category"],
+                document_date=row["document_date"],
                 rank=0.0,
             )
             for row in rows

@@ -4,6 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import ClassVar
 
+from common.normalizer import tokenize_query
 from fsm.core import RunContext
 
 from pipelines.retrieval.alias_map import ALIAS_MAP
@@ -38,7 +39,7 @@ class ExpandAliases:
 
     async def run(self, ctx: RunContext[RetrieveRequest, RetrievalData]) -> None:
         query = ctx.data.query_normalized or ""
-        tokens = query.split()
+        tokens = tokenize_query(query)
 
         seen: set[str] = set()
         result: list[str] = []
@@ -52,9 +53,3 @@ class ExpandAliases:
                     result.append(alias)
 
         ctx.data.expanded_terms = result
-        if self.config.debug:
-            expansions = {}
-            for token in tokens:
-                if token in ALIAS_MAP and ALIAS_MAP[token]:
-                    expansions[token] = ALIAS_MAP[token]
-            ctx.data.debug["alias_expansions"] = expansions if expansions else {}

@@ -41,29 +41,11 @@ async def empty_db() -> str:
 def config() -> RetrievalConfig:
     """Retrieval config for testing."""
     return RetrievalConfig(
-        limit=20,
         prelimit=200,
-        limit_per_document=3,
         bm25_weights=(1.0, 2.5, 2.0, 3.5),
         enable_prefixes=True,
         prefix_min_len=5,
         category_mode="soft",
-        debug=False,
-    )
-
-
-@pytest.fixture
-def config_debug() -> RetrievalConfig:
-    """Retrieval config with debug enabled."""
-    return RetrievalConfig(
-        limit=10,
-        prelimit=100,
-        limit_per_document=2,
-        bm25_weights=(1.0, 2.5, 2.0, 3.5),
-        enable_prefixes=True,
-        prefix_min_len=5,
-        category_mode="soft",
-        debug=True,
     )
 
 
@@ -102,20 +84,6 @@ class TestRetrievalPipelineR0R6:
         assert len(response.chunks) == 0
         assert len(response.documents) == 0
 
-    async def test_debug_output_structure(self, config_debug: RetrievalConfig, empty_db: str) -> None:
-        """Test R2.4: Debug output contains expected keys."""
-        store = SqliteKnowledgeStore(db_path=empty_db)
-        runner = RetrievalRunner(store=store, config=config_debug)
-
-        response = await runner.run(RetrieveRequest(query="мрт узи"))
-
-        assert response.debug is not None
-        # Should have debug info from steps that matched keywords
-        assert "alias_expansions" in response.debug
-        assert "fts_match" in response.debug
-        assert "search_chunks" in response.debug
-        assert "group_by_document" in response.debug
-
     async def test_group_by_document_structure(self, config: RetrievalConfig, empty_db: str) -> None:
         """Test R6: GroupByDocument produces DocumentEvidence list."""
         store = SqliteKnowledgeStore(db_path=empty_db)
@@ -146,7 +114,7 @@ async def test_e2e_pipeline_structure() -> None:
     await init_test_schema(db_path)
 
     try:
-        config = RetrievalConfig(debug=True)
+        config = RetrievalConfig()
         store = SqliteKnowledgeStore(db_path=db_path)
         runner = RetrievalRunner(store=store, config=config)
 
@@ -158,6 +126,5 @@ async def test_e2e_pipeline_structure() -> None:
         assert response.fts_match is not None
         assert isinstance(response.chunks, list)
         assert isinstance(response.documents, list)
-        assert response.debug is not None
     finally:
         Path(db_path).unlink(missing_ok=True)

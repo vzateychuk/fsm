@@ -1,30 +1,26 @@
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
+from pathlib import Path
+
+import yaml
 
 
 @dataclass
 class RetrievalConfig:
     """Retrieval pipeline configuration.
 
-    All parameters can be overridden via environment variables (see from_env()).
+    Load from config/retrieve.yaml using load() method, or create programmatically.
     Pass a single instance into RetrievalRunner; steps receive it via constructor.
-    """
 
-    # Максимальное количество ChunkSearchResult в итоговом ответе.
-    # Применяется в R5 SearchChunks как параметр limit в KnowledgeStore.search_chunks().
-    limit: int = 20
+    Contains only retrieval system parameters (BM25 weights, prefix matching, category filtering).
+    Consultation-specific usage parameters (limits, diversity cap) are stored in ConsultConfig.retrieval.
+    """
 
     # Количество строк BM25, которые SQLite возвращает до применения diversity-фильтра.
     # Должен быть >= limit; чем больше значение, тем точнее diversity, но дороже запрос.
     # Применяется в R5 SearchChunks как параметр prelimit в KnowledgeStore.search_chunks().
     prelimit: int = 200
-
-    # Максимум чанков от одного документа в итоговом списке (diversity cap).
-    # 0 отключает ограничение — все результаты из prelimit попадают в ответ.
-    # Применяется в R5 SearchChunks как параметр limit_per_document в KnowledgeStore.search_chunks().
-    limit_per_document: int = 3
 
     # Веса BM25 для четырёх индексированных колонок FTS5 в порядке:
     # (text, heading, section_path, tags_text).
@@ -52,41 +48,24 @@ class RetrievalConfig:
     #          как SQL WHERE d.category = ?, ограничивая поиск одной категорией.
     category_mode: str = "soft"   # "soft" | "hard"
 
-    # Включить debug-режим: на каждом шаге pipeline заполняется ctx.data.debug
-    # и вызывается logger.debug() с промежуточными значениями.
-    # В RetrieveResponse поле debug возвращается только когда этот флаг True.
-    # Устанавливается через переменную окружения RETRIEVE_DEBUG=true.
-    debug: bool = False
-
     @classmethod
-    def from_env(cls) -> RetrievalConfig:
-        """Build config from environment variables.
+    def load(cls, config_path: Path) -> RetrievalConfig:
+        """Load config from YAML file.
 
-        RETRIEVE_LIMIT              default 20
-        RETRIEVE_PRELIMIT           default 200
-        RETRIEVE_LIMIT_PER_DOCUMENT default 3
-        RETRIEVE_BM25_WEIGHTS       default "1.0,2.5,2.0,3.5"  (text/heading/section_path/tags_text)
-        RETRIEVE_ENABLE_PREFIXES    default "true"
-        RETRIEVE_PREFIX_MIN_LEN     default 5
-        RETRIEVE_CATEGORY_MODE      default "soft"  ("soft" | "hard")
-        RETRIEVE_DEBUG              default "false"
+        Args:
+            config_path: Path to retrieve.yaml configuration file.
+
+        Returns:
+            RetrievalConfig instance with values from YAML.
         """
-        weights_str = os.getenv("RETRIEVE_BM25_WEIGHTS", "1.0,2.5,2.0,3.5")
-        raw = [float(w.strip()) for w in weights_str.split(",")]
-        if len(raw) != 4:
-            raise ValueError(
-                f"RETRIEVE_BM25_WEIGHTS must contain exactly 4 comma-separated values, "
-                f"got: {weights_str!r}"
-            )
-        weights: tuple[float, float, float, float] = (raw[0], raw[1], raw[2], raw[3])
+        with open(config_path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
 
         return cls(
-            limit=int(os.getenv("RETRIEVE_LIMIT", "20")),
-            prelimit=int(os.getenv("RETRIEVE_PRELIMIT", "200")),
-            limit_per_document=int(os.getenv("RETRIEVE_LIMIT_PER_DOCUMENT", "3")),
-            bm25_weights=weights,
-            enable_prefixes=os.getenv("RETRIEVE_ENABLE_PREFIXES", "true").lower() == "true",
-            prefix_min_len=int(os.getenv("RETRIEVE_PREFIX_MIN_LEN", "5")),
-            category_mode=os.getenv("RETRIEVE_CATEGORY_MODE", "soft"),
-            debug=os.getenv("RETRIEVE_DEBUG", "false").lower() == "true",
+            prelimit=data.get("prelimit", 200),
+            bm25_weights=tuple(data.get("bm25_weights", (1.0, 2.5, 2.0, 3.5))),
+            enable_prefixes=data.get("enable_prefixes", True),
+            prefix_min_len=data.get("prefix_min_len", 5),
+            category_mode=data.get("category_mode", "soft"),
         )
+

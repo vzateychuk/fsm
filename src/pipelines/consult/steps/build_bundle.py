@@ -18,8 +18,8 @@ class BuildBundle:
         self.config = config
         self.builder = KBContextBundleBuilder(config)
 
-    async def run(self, ctx: RunContext[ConsultRequest, ConsultData]) -> None:
-        ctx.data.bundle = self.builder.build(
-            query_chunks=ctx.data.query_chunks,
-            recency_chunks=ctx.data.recency_chunks,
+    async def run(self, runCtx: RunContext[ConsultRequest, ConsultData]) -> None:
+        runCtx.data.bundle = self.builder.build(
+            query_chunks=runCtx.data.query_chunks,
+            recency_chunks=runCtx.data.recency_chunks,
         )

@@ -26,8 +26,8 @@ async def main():
     query = sys.argv[1] if len(sys.argv) > 1 else "анализ"
     category = sys.argv[2] if len(sys.argv) > 2 else None
 
-    config = RetrievalConfig.from_env()
-    config.debug = True
+    # Load config from YAML
+    config = RetrievalConfig.load(Path("config/retrieve.yaml"))
     store = SqliteKnowledgeStore(db_path=db_path, bm25_weights=config.bm25_weights)
 
     runner = RetrievalRunner(store=store, config=config)
@@ -52,12 +52,6 @@ async def main():
         print(f"  Chunks: {len(doc.chunks)}")
         for chunk in doc.chunks:
             print(f"    - [{chunk.kind}] {chunk.heading or chunk.text[:50]}...")
-
-    if response.debug:
-        print(f"\n{'='*60}")
-        print("DEBUG INFO:")
-        print(json.dumps(response.debug, indent=2, ensure_ascii=False))
-
 
 if __name__ == "__main__":
     asyncio.run(main())

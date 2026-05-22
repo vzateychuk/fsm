@@ -18,7 +18,7 @@ class KBContextBundleBuilder:
     5. Format text by category (truncate lines)
     6. Apply max_total_chars limit (from tail)
     7. Split into top_chunks (first N) and kb_excerpts (rest)
-    8. Build provenance (doc_id | source | section_path)
+    8. Format with inline source attribution ([index] doc_id | chunk_N | section)
     """
 
     def __init__(self, config: ConsultConfig) -> None:
@@ -36,7 +36,8 @@ class KBContextBundleBuilder:
             recency_chunks: Chunks from recent documents (rank=0.0).
 
         Returns:
-            KBContextBundle with top_chunks, kb_excerpts, provenance.
+            KBContextBundle with top_chunks and kb_excerpts (each prefixed with inline source).
+            Provenance is included as source headers within each chunk text.
         """
         merged = self._deduplicate(query_chunks, recency_chunks)
         merged = merged[: self.config.bundle.max_total_chunks]
@@ -47,19 +48,24 @@ class KBContextBundleBuilder:
         top_chunks_list = formatted[: self.config.excerpts.top_chunks_count]
         kb_excerpts_list = formatted[self.config.excerpts.top_chunks_count :]
 
-        top_chunks_text = [
-            self._truncate_text_lines(chunk.text, self.config.excerpts.top_chunks_lines)
-            for chunk in top_chunks_list
-        ]
+        # Format chunks with inline source attribution: [i] doc_id | chunk_N | section_path
+        # all_chunks_shown = top_chunks_list + kb_excerpts_list
 
-        kb_excerpts_text = [chunk.text for chunk in kb_excerpts_list]
+        top_chunks_text = []
+        for i, chunk in enumerate(top_chunks_list, start=1):
+            source_header = self._format_source_header(i, chunk)
+            text = self._truncate_text_lines(chunk.text, self.config.excerpts.top_chunks_lines)
+            top_chunks_text.append(f"{source_header}\n\n{text}")
 
-        provenance = self._build_provenance(kb_excerpts_list)
+        kb_excerpts_text = []
+        for i, chunk in enumerate(kb_excerpts_list, start=len(top_chunks_list) + 1):
+            source_header = self._format_source_header(i, chunk)
+            kb_excerpts_text.append(f"{source_header}\n\n{chunk.text}")
 
         return KBContextBundle(
             top_chunks=top_chunks_text,
             kb_excerpts=kb_excerpts_text,
-            provenance=provenance,
+            provenance=[],  # Sources now inline in each chunk
         )
 
     @staticmethod
@@ -110,6 +116,7 @@ class KBContextBundleBuilder:
                     tags_text=chunk.tags_text,
                     source_path=chunk.source_path,
                     category=chunk.category,
+                    document_date=chunk.document_date,
                     rank=chunk.rank,
                 )
             )
@@ -155,11 +162,11 @@ class KBContextBundleBuilder:
         return result
 
     @staticmethod
-    def _build_provenance(chunks: list[ChunkSearchResult]) -> list[str]:
-        """Build provenance entries (doc_id | source_path | section_path)."""
-        provenance: list[str] = []
-        for chunk in chunks:
-            section = chunk.section_path or "(no section)"
-            entry = f"{chunk.document_id} | {chunk.source_path} | {section}"
-            provenance.append(entry)
-        return provenance
+    def _format_source_header(index: int, chunk: ChunkSearchResult) -> str:
+        """Format source attribution header for a chunk.
+
+        Format: [index] document_id#chunk_N | document_date | category | section_path
+        Placed inline before the chunk text so LLM directly associates text with source.
+        """
+        section = chunk.section_path or "(no section)"
+        return f"[{index}] {chunk.document_id}#chunk_{chunk.chunk_no} | {chunk.document_date} | {chunk.category} | {section}"

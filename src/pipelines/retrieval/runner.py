@@ -34,7 +34,7 @@ class RetrievalRunner:
     """Orchestrates the retrieval FSM for a single RetrieveRequest.
 
     Usage:
-        config = RetrievalConfig.from_env()
+        config = RetrievalConfig.from_config(config_dict)
         runner = RetrievalRunner(store=knowledge_store, config=config)
         response = await runner.run(RetrieveRequest(query="протрузия"))
     """
@@ -75,5 +75,4 @@ class RetrievalRunner:
             fts_match=data.fts_match or "",
             chunks=list(data.final_chunks),
             documents=list(data.documents),
-            debug=dict(data.debug) if self._config.debug else None,
         )
