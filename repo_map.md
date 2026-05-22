@@ -225,4 +225,4 @@
 ---
 
 <!-- Generated: 2026-05-22 -->
-<!-- updated 2026-05-22: full rewrite — added consult pipeline, llm module, correct entrypoints, fixed env vars, removed non-existent main.py reference -->
+<!-- updated 2026-05-22: full rewrite — added consult pipeline, llm module, correct entrypoints, fixed env vars, removed non-existent cli.py reference -->

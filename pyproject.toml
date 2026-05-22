@@ -24,7 +24,7 @@ dev = [
 ]
 
 [project.scripts]
-advisor = "main.consult:app"
+advisor = "src.main.consult:app"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -112,7 +112,7 @@ src/
 
 ```bash
 # Ingest pipeline (11 шагов обработки markdown)
-python src/main/main.py
+python src/main/cli.py
 ```
 
 ### Создание нового pipeline
