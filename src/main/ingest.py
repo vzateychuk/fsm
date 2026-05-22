@@ -12,6 +12,7 @@ import aiosqlite
 from common import setup_logging
 from fsm.core import SagaDefinition
 from fsm.saga_runner import SagaRunner
+from pipelines.ingest.config import IngestConfig
 from pipelines.ingest.models import IngestData, IngestInput
 from pipelines.ingest.steps import (
     BuildSectionPath,
@@ -55,6 +56,8 @@ async def main() -> None:
     file_store = LocalFileStore(filestore_dir=os.getenv("FILESTORE_DIR", ".data/filestore"))
 
     categories_config = Path(__file__).parents[2] / "config" / "categories.yaml"
+    ingest_config_path = Path(__file__).parents[2] / "config" / "ingest.yaml"
+    ingest_config = IngestConfig.load(ingest_config_path)
 
     definition = SagaDefinition[IngestInput, IngestData](
         name="ingest",
@@ -65,7 +68,7 @@ async def main() -> None:
             SplitControlBlocks(categories_config=categories_config),
             ParseToTokens(),
             BuildSectionPath(),
-            ChunkifyBlocks(),
+            ChunkifyBlocks(admin_headings=ingest_config.admin_section_headings),
             Tagging(),
             PersistSourceFile(store=file_store),
             PersistDocument(store=knowledge_store),

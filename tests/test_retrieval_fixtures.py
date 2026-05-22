@@ -119,6 +119,11 @@ async def test_db_with_medical_docs() -> str:
                     (f"doc3_chunk{i}", "doc_ovarian_cyst", i, "fact", chunk_text, None, None, None),
                 )
 
+            # Populate FTS5 index for all chunks
+            await conn.execute(
+                "INSERT INTO chunks_fts(rowid, text, heading, section_path, tags_text)"
+                " SELECT chunk_pk, text, heading, section_path, tags_text FROM chunks"
+            )
             await conn.commit()
 
         yield db_path
@@ -196,6 +201,7 @@ async def test_retrieval_abdominal_pain(test_db_with_medical_docs: str) -> None:
     """
     from src.store.sql.sqlite_knowledge_store import SqliteKnowledgeStore
     from src.pipelines.retrieval.config import RetrievalConfig
+    from src.pipelines.retrieval.fts_query import build_fts_match
 
     config = RetrievalConfig(
         prelimit=200,
@@ -208,9 +214,12 @@ async def test_retrieval_abdominal_pain(test_db_with_medical_docs: str) -> None:
 
     # Query after normalization and tokenization
     # Original: "болит живот справа, температура 37.8"
-    # After tokenize: "болит живот справа температура" (no punctuation, no digits)
+    # After tokenize: ["болит", "живот", "справа", "температура"]
+    # build_fts_match produces the OR expression that the real pipeline passes to search_chunks
+    terms = ["болит", "живот", "справа", "температура"]
+    fts_query = build_fts_match(terms, config)
     results = await store.search_chunks(
-        query="болит живот справа температура",
+        query=fts_query,
         limit=20,
         prelimit=200,
         bm25_weights=config.bm25_weights,

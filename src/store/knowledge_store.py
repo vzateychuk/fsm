@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import TYPE_CHECKING, Protocol
+
+from common.types import ChunkKind
 
 if TYPE_CHECKING:
     from pipelines.ingest.models import ChunkTagged
 
 Category = str
-ChunkKind = Literal["table", "list", "fact", "section"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +70,7 @@ class KnowledgeStore(Protocol):
         limit_per_document: int = 3,
         prelimit: int = 200,
         bm25_weights: tuple[float, float, float, float] | None = None,
+        meta_score_factor: float = 0.1,
     ) -> list[ChunkSearchResult]: ...
 
     async def get_documents_raw_text(

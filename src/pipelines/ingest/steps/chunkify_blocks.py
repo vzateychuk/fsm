@@ -1,16 +1,24 @@
 from dataclasses import dataclass
 from typing import ClassVar
 
+from common.normalizer import normalize_text
+from common.types import ChunkKind
 from fsm.core import RunContext
 from pipelines.ingest.guards import assert_block_events
 from pipelines.ingest.models import (
     ChunkBase,
-    ChunkKind,
     IngestData,
     IngestError,
     IngestInput,
     MdToken,
 )
+
+
+def _is_admin_heading(heading: str | None, admin_headings: frozenset[str]) -> bool:
+    """Check if heading matches a known administrative section (case-insensitive, normalized)."""
+    if not heading:
+        return False
+    return normalize_text(heading.strip()) in admin_headings
 
 
 def _classify_kind(token: MdToken) -> ChunkKind:
@@ -58,12 +66,16 @@ class ChunkifyBlocks:
 
     1:1 for table/list/fact; section chunks split at paragraph boundaries
     if content exceeds max_section_chars. chunk_no is NOT assigned here — S9 does it.
+
+    Administrative sections (identified by heading in admin_headings) are marked as kind="meta"
+    for later deprioritization in search_chunks.
     """
 
     id: ClassVar[str] = "chunkify_blocks"
     desc: ClassVar[str] = "Convert markdown blocks into typed chunks with breadcrumb context"
 
     max_section_chars: int = 4000
+    admin_headings: frozenset[str] = frozenset()
 
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = self.desc
@@ -73,6 +85,10 @@ class ChunkifyBlocks:
         for event in block_events:
             token = event["token"]
             kind = _classify_kind(token)
+
+            # Override kind to "meta" if heading is in admin_section_headings
+            if _is_admin_heading(event["heading"], self.admin_headings):
+                kind = "meta"
 
             if kind == "section" and len(token.content) > self.max_section_chars:
                 parts = _split_text(token.content, self.max_section_chars)

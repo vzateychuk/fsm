@@ -69,4 +69,5 @@ class SearchChunks:
             limit_per_document=ctx.input.limit_per_document,
             prelimit=ctx.input.prelimit,
             bm25_weights=self.config.bm25_weights,
+            meta_score_factor=self.config.meta_score_factor,
         )

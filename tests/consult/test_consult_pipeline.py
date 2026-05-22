@@ -1,18 +1,22 @@
 """Integration tests for consultation pipeline."""
 
+import sys
 import tempfile
 from pathlib import Path
+
+# Add src to path before any imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 import aiosqlite
 import pytest
 
-from src.llm import MockLLMClient
-from src.pipelines.consult.config import ConsultConfig
-from src.pipelines.consult.models import ConsultRequest
-from src.pipelines.consult.runner import ConsultRunner
-from src.pipelines.retrieval.config import RetrievalConfig
-from src.pipelines.retrieval.runner import RetrievalRunner
-from src.store.sql.sqlite_knowledge_store import SqliteKnowledgeStore
+from llm import MockLLMClient
+from pipelines.consult.config import ConsultConfig
+from pipelines.consult.models import ConsultRequest
+from pipelines.consult.runner import ConsultRunner
+from pipelines.retrieval.config import RetrievalConfig
+from pipelines.retrieval.runner import RetrievalRunner
+from store.sql.sqlite_knowledge_store import SqliteKnowledgeStore
 
 
 @pytest.fixture

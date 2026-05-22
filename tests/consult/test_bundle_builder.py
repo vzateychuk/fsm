@@ -1,10 +1,16 @@
 """Unit tests for KBContextBundleBuilder."""
 
+import sys
+from pathlib import Path
+
+# Add src to path before any imports
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
+
 import pytest
 
-from src.pipelines.consult.bundle_builder import KBContextBundleBuilder
-from src.pipelines.consult.config import ConsultConfig
-from src.store.knowledge_store import ChunkSearchResult
+from pipelines.consult.bundle_builder import KBContextBundleBuilder
+from pipelines.consult.config import ConsultConfig
+from store.knowledge_store import ChunkSearchResult
 
 
 def make_chunk(
@@ -14,6 +20,7 @@ def make_chunk(
     text: str = "test",
     category: str = "Test",
     rank: float = 1.0,
+    document_date: str = "2026-01-01",
 ) -> ChunkSearchResult:
     """Helper to create a ChunkSearchResult."""
     return ChunkSearchResult(
@@ -27,6 +34,7 @@ def make_chunk(
         tags_text=None,
         source_path="test.md",
         category=category,
+        document_date=document_date,
         rank=rank,
     )
 
@@ -49,9 +57,9 @@ def test_deduplication_query_priority():
 
     all_excerpts = result.top_chunks + result.kb_excerpts
     assert len(all_excerpts) == 3
-    assert all_excerpts[0] == "query version"
-    assert all_excerpts[1] == "only in query"
-    assert all_excerpts[2] == "only in recency"
+    assert "query version" in all_excerpts[0]
+    assert "only in query" in all_excerpts[1]
+    assert "only in recency" in all_excerpts[2]
 
 
 def test_max_total_chunks_limit():
@@ -96,7 +104,9 @@ def test_full_text_categories_no_truncation():
     result = builder.build(query_chunks, [])
 
     bundle_text = result.kb_excerpts[-1]  # Last kb_excerpts is the long one
-    lines = bundle_text.split("\n")
+    # Skip the source header (first 2 lines: header + blank)
+    text_without_header = "\n".join(bundle_text.split("\n")[2:])
+    lines = text_without_header.split("\n")
     assert len(lines) == 100  # full_text_categories not truncated
 
 
@@ -114,7 +124,9 @@ def test_category_line_limits_applied():
     result = builder.build(query_chunks, [])
 
     bundle_text = result.kb_excerpts[-1]  # Last kb_excerpts is the long one
-    lines = bundle_text.split("\n")
+    # Skip the source header (first 2 lines: header + blank)
+    text_without_header = "\n".join(bundle_text.split("\n")[2:])
+    lines = text_without_header.split("\n")
     assert len(lines) == config.excerpts.category_line_limits["Диагноз"]
 
 
@@ -132,7 +144,9 @@ def test_max_lines_default_for_unknown_category():
     result = builder.build(query_chunks, [])
 
     bundle_text = result.kb_excerpts[-1]  # Last kb_excerpts is the long one
-    lines = bundle_text.split("\n")
+    # Skip the source header (first 2 lines: header + blank)
+    text_without_header = "\n".join(bundle_text.split("\n")[2:])
+    lines = text_without_header.split("\n")
     assert len(lines) == config.excerpts.max_lines_default
 
 
@@ -160,7 +174,9 @@ def test_top_chunks_truncated_to_lines():
 
     result = builder.build(query_chunks, [])
 
-    top_chunk_lines = result.top_chunks[0].split("\n")
+    # Skip the source header (first 2 lines: header + blank)
+    text_without_header = "\n".join(result.top_chunks[0].split("\n")[2:])
+    top_chunk_lines = text_without_header.split("\n")
     assert len(top_chunk_lines) == config.excerpts.top_chunks_lines
 
 
@@ -181,16 +197,21 @@ def test_provenance_format():
         tags_text=None,
         source_path="file.md",
         category="Test",
+        document_date="2026-01-01",
         rank=0.0,
     )
     chunks.append(chunk_with_section)
 
     result = builder.build(chunks, [])
 
-    assert len(result.provenance) == 1
-    assert "doc2" in result.provenance[0]
-    assert "file.md" in result.provenance[0]
-    assert "section/subsection" in result.provenance[0]
+    # Provenance is now inline in each chunk text
+    assert len(result.provenance) == 0  # Intentionally empty - sources are inline
+
+    # Check that doc2 appears in the last kb_excerpt (the one with section path)
+    last_excerpt = result.kb_excerpts[-1]
+    assert "doc2" in last_excerpt
+    assert "file.md" in last_excerpt
+    assert "section/subsection" in last_excerpt
 
 
 def test_empty_input():
@@ -222,6 +243,12 @@ def test_multiple_categories_mixed():
 
     result = builder.build(query_chunks, [])
 
-    assert len(result.kb_excerpts[0].split("\n")) == 100  # Консультация - full text
-    assert len(result.kb_excerpts[1].split("\n")) == 60   # Анализы - 60 lines
-    assert len(result.kb_excerpts[2].split("\n")) == 20   # Unknown - 20 lines (default)
+    # Skip the source header (first 2 lines: header + blank)
+    first_excerpt_text = "\n".join(result.kb_excerpts[0].split("\n")[2:])
+    assert len(first_excerpt_text.split("\n")) == 100  # Консультация - full text
+
+    second_excerpt_text = "\n".join(result.kb_excerpts[1].split("\n")[2:])
+    assert len(second_excerpt_text.split("\n")) == 60   # Анализы - 60 lines
+
+    third_excerpt_text = "\n".join(result.kb_excerpts[2].split("\n")[2:])
+    assert len(third_excerpt_text.split("\n")) == 20   # Unknown - 20 lines (default)

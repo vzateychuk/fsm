@@ -8,7 +8,7 @@
 
 ## Top Relevant Clinical Findings
 
-The following findings are most directly relevant to your query:
+The following findings are most directly relevant:
 
 {top_chunks}
 

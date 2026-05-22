@@ -164,6 +164,7 @@ class SqliteKnowledgeStore:
         limit_per_document: int = 3,
         prelimit: int = 200,
         bm25_weights: tuple[float, float, float, float] | None = None,
+        meta_score_factor: float = 0.1,
     ) -> list[ChunkSearchResult]:
         weights = bm25_weights if bm25_weights is not None else self.bm25_weights
         sql = (
@@ -198,6 +199,17 @@ class SqliteKnowledgeStore:
             conn.row_factory = aiosqlite.Row
             async with conn.execute(sql, params) as cursor:
                 rows = await cursor.fetchall()
+
+        # Apply meta_score_factor penalty to administrative chunks before diversity filtering.
+        # BM25 scores are negative (more negative = more relevant).
+        # Multiplying by a small factor (e.g., 0.1) makes the score less negative = lower priority.
+        if meta_score_factor < 1.0:
+            rows = [dict(row) for row in rows]  # Convert sqlite3.Row to mutable dicts
+            for row in rows:
+                if row["kind"] == "meta":
+                    row["rank"] = row["rank"] * meta_score_factor
+            # Re-sort by penalized rank
+            rows.sort(key=lambda r: r["rank"])
 
         diversity_enabled = limit_per_document > 0
         counts_per_doc: dict[str, int] = defaultdict(int)

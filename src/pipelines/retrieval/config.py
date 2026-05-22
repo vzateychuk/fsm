@@ -27,7 +27,7 @@ class RetrievalConfig:
     # Больший вес — сильнее влияет на ранжирование.
     # Применяется в SqliteKnowledgeStore как аргументы функции bm25() в SQL-запросе.
     bm25_weights: tuple[float, float, float, float] = field(
-        default_factory=lambda: (1.0, 2.5, 2.0, 3.5)
+        default_factory=lambda: (3.0, 2.0, 1.0, 1.5)
     )
 
     # Включить суффикс * (prefix match) для токенов в FTS5 MATCH-строке.
@@ -48,6 +48,12 @@ class RetrievalConfig:
     #          как SQL WHERE d.category = ?, ограничивая поиск одной категорией.
     category_mode: str = "soft"   # "soft" | "hard"
 
+    # Штраф (multiplier) на BM25 score для чанков с kind="meta" (административные секции).
+    # Чанки с kind="meta" попадают в результаты поиска, но ранжируются ниже клинического контента.
+    # Применяется в SqliteKnowledgeStore.search_chunks() после fetchall, перед diversity-фильтром.
+    # Примеры: 0.1 (10x penalty), 0.5 (2x penalty), 1.0 (без штрафа).
+    meta_score_factor: float = 0.1
+
     @classmethod
     def load(cls, config_path: Path) -> RetrievalConfig:
         """Load config from YAML file.
@@ -67,5 +73,6 @@ class RetrievalConfig:
             enable_prefixes=data.get("enable_prefixes", True),
             prefix_min_len=data.get("prefix_min_len", 5),
             category_mode=data.get("category_mode", "soft"),
+            meta_score_factor=data.get("meta_score_factor", 0.1),
         )
 

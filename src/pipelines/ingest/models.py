@@ -3,6 +3,7 @@ from typing import Literal, NotRequired, TypedDict
 
 from pydantic import Field
 
+from common.types import ChunkKind
 from fsm.models import SagaData, SagaInput
 
 
@@ -41,9 +42,6 @@ class BlockEvent(TypedDict):
     token: MdToken
     section_path: str
     heading: str | None
-
-
-ChunkKind = Literal["section", "table", "list", "fact"]
 
 
 class ChunkBase(TypedDict):
