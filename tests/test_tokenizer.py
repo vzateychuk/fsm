@@ -49,9 +49,9 @@ class TestTokenizeQuery:
         result = tokenize_query("витамин B12 диагноз F41")
         # Mixed alphanumeric tokens are kept
         assert "витамин" in result
-        assert "b12" in result
+        assert "B12" in result
         assert "диагноз" in result
-        assert "f41" in result
+        assert "F41" in result
 
     def test_empty_query(self) -> None:
         """Empty query should return empty list."""
