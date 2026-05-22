@@ -25,8 +25,9 @@ class PersistDocument:
             document_id=document_id,
             source_path=filestore_path,
             source_sha256=file_hash,
-            doc_type=ctx.data.target_schema or "",
+            category=ctx.data.target_schema or "",
             indexed_at=datetime.now(UTC).isoformat(),
+            document_date=ctx.data.document_date,
             raw_text=ctx.data.raw_content or "",
         )
         ctx.data.document_id = document_id

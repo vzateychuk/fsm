@@ -1,11 +1,15 @@
+import logging
 from dataclasses import dataclass, field
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import ClassVar
 
-from common.utils.parsers import find_category, load_categories
+from common.utils.parsers import extract_document_date, find_category, load_categories
 from fsm.core import RunContext
 from pipelines.ingest.guards import assert_raw_content
 from pipelines.ingest.models import IngestData, IngestInput
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_CATEGORIES_CONFIG = Path(__file__).parents[4] / "config" / "categories.yaml"
 
@@ -30,7 +34,29 @@ class SplitControlBlocks:
     async def run(self, ctx: RunContext[IngestInput, IngestData]) -> None:
         ctx.data.desc = self.desc
         content = assert_raw_content(ctx.data, self.id)
+
+        # Extract document date: content marker > YAML metadata
+        extracted_date = extract_document_date(content)
+
+        if extracted_date:
+            ctx.data.document_date = extracted_date
+        else:
+            # Fallback: use current date and log warning
+            fallback_date = datetime.now(UTC).date().isoformat()
+            logger.warning(
+                f"Could not extract document date from {ctx.input.source_path}. "
+                f"Using current date as fallback: {fallback_date}"
+            )
+            ctx.data.document_date = fallback_date
+
         lines = content.split("\n")
+
+        # Strip YAML metadata block from body if present (--- ... ---)
+        if lines and lines[0].strip() == "---":
+            for i in range(1, len(lines)):
+                if lines[i].strip() == "---":
+                    lines = lines[i + 1 :]
+                    break
 
         # Remove category line if found (first occurrence in first 30 lines)
         match = find_category(lines, self._allowed, search_limit=30)
@@ -38,4 +64,4 @@ class SplitControlBlocks:
             lines.pop(match.line_number)
 
         ctx.data.md_body = "\n".join(lines)
-        ctx.data.desc = f"Cleaned: {len(lines)} lines, body_size={len(ctx.data.md_body)}"
+        ctx.data.desc = f"Cleaned: {len(lines)} lines, body_size={len(ctx.data.md_body)}, date={ctx.data.document_date}"

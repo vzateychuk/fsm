@@ -2,8 +2,9 @@ CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
     source_path TEXT NOT NULL,
     source_sha256 TEXT NOT NULL,
-    doc_type TEXT NOT NULL,
+    category TEXT NOT NULL,
     indexed_at TEXT NOT NULL,
+    document_date TEXT NOT NULL,
     raw_text TEXT NOT NULL
 );
 

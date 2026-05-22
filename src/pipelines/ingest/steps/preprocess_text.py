@@ -1,8 +1,8 @@
 import hashlib
-import unicodedata
 from dataclasses import dataclass
 from typing import ClassVar
 
+from common.normalizer import normalize_text
 from fsm.core import RunContext
 from pipelines.ingest.guards import assert_raw_content
 from pipelines.ingest.models import IngestData, IngestInput
@@ -43,14 +43,8 @@ class PreprocessText:
         # 4. Replace NBSP ( ) with regular space
         content = content.replace(" ", " ")
 
-        # 5. Unicode normalization to NFKC
-        content = unicodedata.normalize("NFKC", content)
-
-        # 6. Lowercase for deterministic matching
-        content = content.lower()
-
-        # 7. Replace ё with е (Russian-specific normalization)
-        content = content.replace("ё", "е")
+        # 5–7. NFKC normalization, lowercase, ё→е
+        content = normalize_text(content)
 
         ctx.data.raw_content = content
 

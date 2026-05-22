@@ -7,13 +7,10 @@ from typing import TYPE_CHECKING, Any
 
 import aiosqlite
 
-from store.knowledge_store import ChunkKind, ChunkSearchResult, DocType
+from store.knowledge_store import Category, ChunkKind, ChunkSearchResult, DocumentMetadata
 
 if TYPE_CHECKING:
     from pipelines.ingest.models import ChunkTagged
-
-
-_BM25_WEIGHTS = (1.0, 2.5, 2.0, 3.5)
 
 
 def _chunk_id(document_id: str, section_path: str | None, kind: str, text: str) -> str:
@@ -24,6 +21,7 @@ def _chunk_id(document_id: str, section_path: str | None, kind: str, text: str) 
 @dataclass(slots=True)
 class SqliteKnowledgeStore:
     db_path: str
+    bm25_weights: tuple[float, float, float, float] = (1.0, 2.5, 2.0, 3.5)
 
     async def save_document(
         self,
@@ -31,15 +29,16 @@ class SqliteKnowledgeStore:
         document_id: str,
         source_path: str,
         source_sha256: str,
-        doc_type: DocType,
+        category: Category,
         indexed_at: str,
+        document_date: str,
         raw_text: str,
     ) -> None:
         async with aiosqlite.connect(self.db_path) as conn:
             await conn.execute(
-                "INSERT OR REPLACE INTO documents (id, source_path, source_sha256, doc_type, indexed_at, raw_text)"
-                " VALUES (?, ?, ?, ?, ?, ?)",
-                (document_id, source_path, source_sha256, doc_type, indexed_at, raw_text),
+                "INSERT OR REPLACE INTO documents (id, source_path, source_sha256, category, indexed_at, document_date, raw_text)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (document_id, source_path, source_sha256, category, indexed_at, document_date, raw_text),
             )
             await conn.commit()
 
@@ -66,10 +65,11 @@ class SqliteKnowledgeStore:
 
         async with aiosqlite.connect(self.db_path) as conn:
             try:
-                # 1. FTS delete: log old entries before removing source rows
+                # 1. FTS delete: log old entries with column values before removing source rows
                 await conn.execute(
-                    "INSERT INTO chunks_fts(chunks_fts, rowid)"
-                    " SELECT 'delete', c.chunk_pk FROM chunks c WHERE c.document_id = ?",
+                    "INSERT INTO chunks_fts(chunks_fts, rowid, text, heading, section_path, tags_text)"
+                    " SELECT 'delete', c.chunk_pk, c.text, c.heading, c.section_path, c.tags_text"
+                    " FROM chunks c WHERE c.document_id = ?",
                     (document_id,),
                 )
                 # 2. Delete old chunks
@@ -97,32 +97,89 @@ class SqliteKnowledgeStore:
 
         return chunk_ids
 
+    async def get_documents_raw_text(
+        self,
+        document_ids: list[str],
+    ) -> dict[str, str]:
+        if not document_ids:
+            return {}
+        placeholders = ",".join("?" * len(document_ids))
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(
+                f"SELECT id, raw_text FROM documents WHERE id IN ({placeholders})",
+                document_ids,
+            ) as cursor:
+                rows = await cursor.fetchall()
+        return {row["id"]: row["raw_text"] for row in rows}
+
+    async def get_neighbor_chunks(
+        self,
+        document_id: str,
+        chunk_no: int,
+        window: int,
+    ) -> list[ChunkSearchResult]:
+        lo = chunk_no - window
+        hi = chunk_no + window
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(
+                "SELECT c.chunk_id, c.document_id, c.chunk_no, c.kind, c.text,"
+                " c.section_path, c.heading, c.tags_text,"
+                " d.source_path, d.category, d.document_date"
+                " FROM chunks c"
+                " JOIN documents d ON c.document_id = d.id"
+                " WHERE c.document_id = ? AND c.chunk_no BETWEEN ? AND ?"
+                " ORDER BY c.chunk_no",
+                (document_id, lo, hi),
+            ) as cursor:
+                rows = await cursor.fetchall()
+        return [
+            ChunkSearchResult(
+                chunk_id=row["chunk_id"],
+                document_id=row["document_id"],
+                chunk_no=row["chunk_no"],
+                kind=row["kind"],
+                text=row["text"],
+                section_path=row["section_path"],
+                heading=row["heading"],
+                tags_text=row["tags_text"],
+                source_path=row["source_path"],
+                category=row["category"],
+                document_date=row["document_date"],
+                rank=0.0,
+            )
+            for row in rows
+        ]
+
     async def search_chunks(
         self,
         query: str,
         *,
-        doc_type: DocType | None = None,
+        category: Category | None = None,
         document_id: str | None = None,
         kinds: set[ChunkKind] | None = None,
         section_path_prefix: str | None = None,
         limit: int = 20,
         limit_per_document: int = 3,
         prelimit: int = 200,
+        bm25_weights: tuple[float, float, float, float] | None = None,
     ) -> list[ChunkSearchResult]:
+        weights = bm25_weights if bm25_weights is not None else self.bm25_weights
         sql = (
             "SELECT c.chunk_id, c.document_id, c.chunk_no, c.kind, c.text,"
             " c.section_path, c.heading, c.tags_text,"
-            " d.source_path, d.doc_type, bm25(chunks_fts, ?, ?, ?, ?) AS rank"
+            " d.source_path, d.category, d.document_date, bm25(chunks_fts, ?, ?, ?, ?) AS rank"
             " FROM chunks_fts"
             " JOIN chunks c ON chunks_fts.rowid = c.chunk_pk"
             " JOIN documents d ON c.document_id = d.id"
             " WHERE chunks_fts MATCH ?"
         )
-        params: list[Any] = [*_BM25_WEIGHTS, query]
+        params: list[Any] = [*weights, query]
 
-        if doc_type:
-            sql += " AND d.doc_type = ?"
-            params.append(doc_type)
+        if category:
+            sql += " AND d.category = ?"
+            params.append(category)
         if document_id:
             sql += " AND c.document_id = ?"
             params.append(document_id)
@@ -161,7 +218,8 @@ class SqliteKnowledgeStore:
                     heading=row["heading"],
                     tags_text=row["tags_text"],
                     source_path=row["source_path"],
-                    doc_type=row["doc_type"],
+                    category=row["category"],
+                    document_date=row["document_date"],
                     rank=row["rank"],
                 )
             )
@@ -169,3 +227,76 @@ class SqliteKnowledgeStore:
                 break
 
         return results
+
+    async def list_documents_by_date(
+        self,
+        *,
+        limit: int = 5,
+        category: Category | None = None,
+    ) -> list[DocumentMetadata]:
+        query = (
+            "SELECT id, source_path, category, document_date, indexed_at"
+            " FROM documents"
+        )
+        params: list[Any] = []
+
+        if category:
+            query += " WHERE category = ?"
+            params.append(category)
+
+        query += " ORDER BY COALESCE(document_date, indexed_at) DESC LIMIT ?"
+        params.append(limit)
+
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+
+        return [
+            DocumentMetadata(
+                document_id=row["id"],
+                source_path=row["source_path"],
+                category=row["category"],
+                document_date=row["document_date"],
+                indexed_at=row["indexed_at"],
+            )
+            for row in rows
+        ]
+
+    async def get_document_chunks(
+        self,
+        document_id: str,
+        limit: int,
+    ) -> list[ChunkSearchResult]:
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(
+                "SELECT c.chunk_id, c.document_id, c.chunk_no, c.kind, c.text,"
+                " c.section_path, c.heading, c.tags_text,"
+                " d.source_path, d.category, d.document_date"
+                " FROM chunks c"
+                " JOIN documents d ON c.document_id = d.id"
+                " WHERE c.document_id = ?"
+                " ORDER BY c.chunk_no ASC"
+                " LIMIT ?",
+                (document_id, limit),
+            ) as cursor:
+                rows = await cursor.fetchall()
+
+        return [
+            ChunkSearchResult(
+                chunk_id=row["chunk_id"],
+                document_id=row["document_id"],
+                chunk_no=row["chunk_no"],
+                kind=row["kind"],
+                text=row["text"],
+                section_path=row["section_path"],
+                heading=row["heading"],
+                tags_text=row["tags_text"],
+                source_path=row["source_path"],
+                category=row["category"],
+                document_date=row["document_date"],
+                rank=0.0,
+            )
+            for row in rows
+        ]

@@ -2,6 +2,20 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Debug ConsultRunner",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/main/consult.py",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "env": {
+        "DB_PATH": "${workspaceFolder}/.data/db/ingest.db",
+        "PYTHONPATH": "${workspaceFolder}"
+      },
+      "cwd": "${workspaceFolder}",
+      "stopOnEntry": false
+    },
+    {
       "name": "Python: Current File",
       "type": "debugpy",
       "request": "launch",
@@ -18,7 +32,8 @@
         "INGEST_FILE": "${workspaceFolder}/fsm/.data/ingest/2023-02-23_ecg.md"
       },
       "args": [
-        "LOG_FILE", "${workspaceFolder}/logs/ingest.log",
+        "LOG_FILE",
+        "${workspaceFolder}/logs/ingest.log",
       ],
       "console": "integratedTerminal",
       "justMyCode": false
@@ -34,7 +49,7 @@
       ],
       "console": "integratedTerminal",
       "justMyCode": true,
-      "cwd":"${workspaceFolder}",
+      "cwd": "${workspaceFolder}",
     },
   ]
 }

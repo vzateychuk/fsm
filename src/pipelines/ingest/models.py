@@ -95,6 +95,7 @@ class IngestData(SagaData):
 
     # S3 SplitControlBlocks
     md_body: str | None = None
+    document_date: str = ""
 
     # S4 ParseToTokens
     tokens: list[MdToken] = Field(default_factory=list)
