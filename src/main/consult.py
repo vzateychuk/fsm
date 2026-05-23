@@ -32,6 +32,7 @@ def consult(
     env: str = typer.Option("prod", "--env", help="prod | test"),
     from_date: str = typer.Option(None, "--from-date", help="Search from date (ISO format YYYY-MM-DD)"),
     to_date: str = typer.Option(None, "--to-date", help="Search to date (ISO format YYYY-MM-DD)"),
+    include_meta: bool = typer.Option(False, "--include-meta", help="Include administrative (meta) chunks in search results"),
 ) -> None:
     """Medical consultation: user request -> retrieval KB -> LLM response.
 
@@ -64,7 +65,7 @@ def consult(
     )
 
     logger.info("Starting consultation: %r", user_request)
-    result = asyncio.run(runner.run(ConsultRequest(user_request=user_request, from_date=from_date, to_date=to_date)))
+    result = asyncio.run(runner.run(ConsultRequest(user_request=user_request, from_date=from_date, to_date=to_date, include_meta_chunks=include_meta)))
     logger.info("Consultation complete.")
     print(result.response.raw_text if result.response else "")
 

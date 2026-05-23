@@ -5,6 +5,7 @@ Handles: heading, paragraph, table, list, fence (code block).
 """
 
 from collections.abc import Callable
+from typing import Literal
 
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
@@ -74,6 +75,34 @@ def _parse_heading(i: int, block_tokens: list[Token]) -> tuple[int, MdToken | No
     return next_i, MdToken(type="heading", content=content, level=level, markup="#" * level)
 
 
+def _is_bold_label_paragraph(inline_token: Token) -> bool:
+    """Return True if paragraph consists entirely of bold text (**...**).
+
+    Covers both **Label** and **Label:** (colon inside bold).
+    Excludes fact paragraphs like **Label**: value (text after strong_close).
+    Used to detect sub-headers before lists/tables, e.g. **Симптомы раздражения брюшины:**
+    """
+    children = inline_token.children or []
+    if not children:
+        return False
+    in_strong = False
+    has_strong = False
+    for child in children:
+        if child.type == "strong_open":
+            in_strong = True
+            has_strong = True
+        elif child.type == "strong_close":
+            in_strong = False
+        elif child.type == "text":
+            if not in_strong and child.content.strip():
+                return False
+        elif child.type in ("softbreak", "hardbreak"):
+            pass
+        elif not in_strong:
+            return False
+    return has_strong and not in_strong
+
+
 def _is_fact_paragraph(inline_token: Token) -> bool:
     """Return True if paragraph starts with **label**: pattern.
 
@@ -114,11 +143,16 @@ def _parse_paragraph(i: int, block_tokens: list[Token]) -> tuple[int, MdToken | 
         if i + 1 < len(block_tokens) and block_tokens[i + 1].type == "inline"
         else None
     )
-    is_fact = _is_fact_paragraph(inline_tok) if inline_tok is not None else False
     content, next_i = _collect_inline(block_tokens, i, "paragraph_close")
     if not content:
         return next_i, None
-    return next_i, MdToken(type="paragraph", content=content, subtype="fact" if is_fact else "")
+    if inline_tok is not None and _is_bold_label_paragraph(inline_tok):
+        subtype: Literal["", "fact", "bold_label"] = "bold_label"
+    elif inline_tok is not None and _is_fact_paragraph(inline_tok):
+        subtype = "fact"
+    else:
+        subtype = ""
+    return next_i, MdToken(type="paragraph", content=content, subtype=subtype)
 
 
 def _parse_table(i: int, block_tokens: list[Token]) -> tuple[int, MdToken | None]:

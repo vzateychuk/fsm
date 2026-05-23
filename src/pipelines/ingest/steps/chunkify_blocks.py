@@ -82,8 +82,20 @@ class ChunkifyBlocks:
         block_events = assert_block_events(ctx.data, self.id)
         chunks: list[ChunkBase] = []
 
+        pending_label: str | None = None
+        pending_label_event: dict | None = None
+
         for event in block_events:
             token = event["token"]
+
+            # Bold-only paragraphs (**...**) are sub-labels for the next block.
+            # Accumulate the label text and prepend it to the next chunk instead of
+            # creating a standalone meaningless chunk.
+            if token.subtype == "bold_label":
+                pending_label = token.content
+                pending_label_event = event
+                continue
+
             kind = _classify_kind(token)
 
             # Override kind to "meta" if heading is in admin_section_headings
@@ -95,15 +107,29 @@ class ChunkifyBlocks:
             else:
                 parts = [token.content]
 
-            for part in parts:
+            for idx, part in enumerate(parts):
                 if not part.strip():
                     continue
+                text = part
+                if pending_label is not None and idx == 0:
+                    text = pending_label + "\n" + text
+                    pending_label = None
+                    pending_label_event = None
                 chunks.append({
                     "kind": kind,
-                    "text": part,
+                    "text": text,
                     "section_path": event["section_path"],
                     "heading": event["heading"],
                 })
+
+        # Dangling bold_label at end of document with no following chunk
+        if pending_label is not None and pending_label_event is not None:
+            chunks.append({
+                "kind": "section",
+                "text": pending_label,
+                "section_path": pending_label_event["section_path"],
+                "heading": pending_label_event["heading"],
+            })
 
         if not chunks:
             raise IngestError("E_EMPTY_CHUNKS", "No chunks produced from document body")

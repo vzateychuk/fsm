@@ -167,6 +167,7 @@ class SqliteKnowledgeStore:
         prelimit: int = 200,
         bm25_weights: tuple[float, float, float, float] | None = None,
         meta_score_factor: float = 0.1,
+        include_meta_chunks: bool = False,
     ) -> list[ChunkSearchResult]:
         weights = bm25_weights if bm25_weights is not None else self.bm25_weights
         sql = (
@@ -199,6 +200,8 @@ class SqliteKnowledgeStore:
         if to_date:
             sql += " AND d.document_date <= ?"
             params.append(to_date)
+        if not include_meta_chunks:
+            sql += " AND c.kind != 'meta'"
 
         sql += " ORDER BY rank, d.document_date DESC LIMIT ?"
         params.append(prelimit)
@@ -288,20 +291,27 @@ class SqliteKnowledgeStore:
         self,
         document_id: str,
         limit: int,
+        include_meta_chunks: bool = False,
     ) -> list[ChunkSearchResult]:
+        sql = (
+            "SELECT c.chunk_id, c.document_id, c.chunk_no, c.kind, c.text,"
+            " c.section_path, c.heading, c.tags_text,"
+            " d.source_path, d.category, d.document_date"
+            " FROM chunks c"
+            " JOIN documents d ON c.document_id = d.id"
+            " WHERE c.document_id = ?"
+        )
+        params: list[Any] = [document_id]
+
+        if not include_meta_chunks:
+            sql += " AND c.kind != 'meta'"
+
+        sql += " ORDER BY c.chunk_no ASC LIMIT ?"
+        params.append(limit)
+
         async with aiosqlite.connect(self.db_path) as conn:
             conn.row_factory = aiosqlite.Row
-            async with conn.execute(
-                "SELECT c.chunk_id, c.document_id, c.chunk_no, c.kind, c.text,"
-                " c.section_path, c.heading, c.tags_text,"
-                " d.source_path, d.category, d.document_date"
-                " FROM chunks c"
-                " JOIN documents d ON c.document_id = d.id"
-                " WHERE c.document_id = ?"
-                " ORDER BY c.chunk_no ASC"
-                " LIMIT ?",
-                (document_id, limit),
-            ) as cursor:
+            async with conn.execute(sql, params) as cursor:
                 rows = await cursor.fetchall()
 
         return [

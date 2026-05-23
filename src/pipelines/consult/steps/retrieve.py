@@ -37,6 +37,7 @@ class Retrieve:
             limit=self.consult_config.retrieval.query_top_k,
             limit_per_document=self.consult_config.retrieval.query_limit_per_document,
             prelimit=self.retrieval_config.prelimit,
+            include_meta_chunks=runCtx.input.include_meta_chunks,
         )
 
         # Compute from_date and to_date: use explicit values from request, or defaults from config
@@ -62,5 +63,6 @@ class Retrieve:
             chunks = await self.store.get_document_chunks(
                 doc.document_id,
                 self.consult_config.recency.chunks_per_doc,
+                include_meta_chunks=runCtx.input.include_meta_chunks,
             )
             runCtx.data.recency_chunks.extend(chunks)

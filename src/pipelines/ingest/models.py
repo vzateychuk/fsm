@@ -22,13 +22,13 @@ class MdToken:
         content: plain text content (inline markup removed, serialized if complex)
         level: heading level (1-6 for H1-H6), 0 for other types
         markup: markup hint (e.g., '#' for headings, language for fence)
-        subtype: semantic subtype; "fact" for paragraphs starting with **Label**: pattern
+        subtype: semantic subtype; "fact" for **Label**: pattern, "bold_label" for standalone **...**
     """
     type: str
     content: str
     level: int = 0
     markup: str = ""
-    subtype: Literal["", "fact"] = ""
+    subtype: Literal["", "fact", "bold_label"] = ""
 
 
 class BlockEvent(TypedDict):

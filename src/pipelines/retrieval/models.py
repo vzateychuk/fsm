@@ -58,6 +58,10 @@ class RetrieveRequest(SagaInput):
     # в DocumentEvidence.full_text для каждого найденного документа
     include_full_docs: bool = False
 
+    # SQL-фильтр: если False (по умолчанию), чанки с kind='meta' (административные данные)
+    # исключаются из выборки. Если True — включаются с понижением rank через meta_score_factor.
+    include_meta_chunks: bool = False
+
 
 @dataclass
 class DocumentEvidence:

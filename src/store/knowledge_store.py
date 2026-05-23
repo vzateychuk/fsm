@@ -73,6 +73,7 @@ class KnowledgeStore(Protocol):
         prelimit: int = 200,
         bm25_weights: tuple[float, float, float, float] | None = None,
         meta_score_factor: float = 0.1,
+        include_meta_chunks: bool = False,
     ) -> list[ChunkSearchResult]: ...
 
     async def get_documents_raw_text(
@@ -113,10 +114,12 @@ class KnowledgeStore(Protocol):
         self,
         document_id: str,
         limit: int,
+        include_meta_chunks: bool = False,
     ) -> list[ChunkSearchResult]:
         """Return first N chunks of a document ordered by chunk_no (ascending).
 
         Used by recency bundle to fetch initial chunks from recent documents.
         Returned chunks have rank=0.0 (positional retrieval, not BM25-ranked).
+        If include_meta_chunks=False, chunks with kind='meta' are excluded.
         """
         ...

@@ -72,4 +72,5 @@ class SearchChunks:
             prelimit=ctx.input.prelimit,
             bm25_weights=self.config.bm25_weights,
             meta_score_factor=self.config.meta_score_factor,
+            include_meta_chunks=ctx.input.include_meta_chunks,
         )

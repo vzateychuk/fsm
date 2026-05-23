@@ -14,6 +14,9 @@ class ConsultRequest(SagaInput):
     """Optional search start date (ISO format YYYY-MM-DD). If not provided, defaults to lookback_days from config."""
     to_date: str | None = None
     """Optional search end date (ISO format YYYY-MM-DD). If not provided, defaults to today."""
+    include_meta_chunks: bool = False
+    """If False (default), chunks with kind='meta' are excluded from BM25 results.
+    If True, meta chunks are included but ranked lower via meta_score_factor."""
 
 
 class KBContextBundle(BaseModel):

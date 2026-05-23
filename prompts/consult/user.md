@@ -1,18 +1,18 @@
-# Patient Info
+## Patient Info
 
 {patient_info}
 
-# Patient Request
+## Patient Request
 
 {user_request}
 
-# Top Relevant Excerpts
+## Top Relevant Excerpts
 
 The following findings are most directly relevant:
 
 {top_chunks}
 
-# Additional Context
+## Additional Context
 
 {kb_excerpts}
     
