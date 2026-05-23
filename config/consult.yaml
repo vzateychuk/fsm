@@ -1,15 +1,15 @@
 retrieval:
   query_top_k: 20              # максимум чанков из BM25-поиска по запросу
   query_limit_per_document: 3  # не более N чанков из одного документа (разнообразие)
+  lookback_days: 365           # период поиска для документов по умолчанию (от текущей даты в прошлое)
 
 recency:
   max_docs: 3          # сколько свежих документов включаем в recency bundle
-  max_age_days: 365    # документы старше этого числа дней не включаются
-  db_fetch_limit: 50   # запрашиваем из БД с запасом, фильтруем по дате на клиенте
+  db_fetch_limit: 50   # запрашиваем из БД с запасом
   chunks_per_doc: 2    # первых N чанков (по chunk_no) берём из каждого свежего документа
 
 bundle:
-  max_total_chunks: 15   # итоговый лимит чанков в bundle (query + recency суммарно)
+  max_total_chunks: 10   # итоговый лимит чанков в bundle (query + recency суммарно)
   max_total_chars: 15000 # лимит символов применяется ПОСЛЕ line-truncation (защита от взрыва)
 
 excerpts:

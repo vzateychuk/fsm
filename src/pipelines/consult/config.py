@@ -58,6 +58,9 @@ class RetrievalUsageConfig:
     """Maximum number of chunks to fetch from BM25 query for the consultation. Passed as 'limit' to RetrieveRequest."""
     query_limit_per_document: int
     """Maximum chunks per document in the BM25 query results (diversity cap). Passed as 'limit_per_document' to RetrieveRequest."""
+    lookback_days: int
+    """Default search lookback period in days (from today into the past) for BM25 query.
+    Used to compute from_date if not explicitly provided in RetrieveRequest."""
 
 
 @dataclass
@@ -68,10 +71,8 @@ class RecencyConfig:
     """
     max_docs: int
     """Maximum number of recent documents to include in the recency bundle."""
-    max_age_days: int
-    """Maximum age of documents in days. Documents older than this cutoff are excluded."""
     db_fetch_limit: int
-    """Fetch limit for database query before date filtering on client side. Should be >= max_docs with some buffer to account for excluded old documents."""
+    """Fetch limit for database query. Should be >= max_docs with some buffer."""
     chunks_per_doc: int
     """Number of first chunks (ordered by chunk_no) to extract from each recent document."""
 

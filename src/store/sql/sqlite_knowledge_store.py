@@ -160,6 +160,8 @@ class SqliteKnowledgeStore:
         document_id: str | None = None,
         kinds: set[ChunkKind] | None = None,
         section_path_prefix: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
         limit: int = 20,
         limit_per_document: int = 3,
         prelimit: int = 200,
@@ -191,8 +193,14 @@ class SqliteKnowledgeStore:
         if section_path_prefix:
             sql += " AND c.section_path LIKE ?"
             params.append(f"{section_path_prefix}%")
+        if from_date:
+            sql += " AND d.document_date >= ?"
+            params.append(from_date)
+        if to_date:
+            sql += " AND d.document_date <= ?"
+            params.append(to_date)
 
-        sql += " ORDER BY rank LIMIT ?"
+        sql += " ORDER BY rank, d.document_date DESC LIMIT ?"
         params.append(prelimit)
 
         async with aiosqlite.connect(self.db_path) as conn:
@@ -208,8 +216,9 @@ class SqliteKnowledgeStore:
             for row in rows:
                 if row["kind"] == "meta":
                     row["rank"] = row["rank"] * meta_score_factor
-            # Re-sort by penalized rank
-            rows.sort(key=lambda r: r["rank"])
+            # Re-sort by penalized rank, then by document_date DESC (fresh documents first)
+            # Negate date for DESC sort: newer dates (larger values) become smaller when negated
+            rows.sort(key=lambda r: (r["rank"], -int(r["document_date"].replace("-", ""))))
 
         diversity_enabled = limit_per_document > 0
         counts_per_doc: dict[str, int] = defaultdict(int)

@@ -66,6 +66,8 @@ class KnowledgeStore(Protocol):
         document_id: str | None = None,
         kinds: set[ChunkKind] | None = None,
         section_path_prefix: str | None = None,
+        from_date: str | None = None,
+        to_date: str | None = None,
         limit: int = 20,
         limit_per_document: int = 3,
         prelimit: int = 200,

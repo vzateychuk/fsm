@@ -116,7 +116,9 @@ Python >=3.13 required per pyproject.toml. No Dockerfile or .python-version foun
 | tests-consult        | tests/consult/                          | Consultation pipeline unit tests                 | TESTS          |
 | tests-parsers        | tests/parsers/                          | Markdown parser unit tests                       | TESTS          |
 | tests-store          | tests/store/                            | Store implementation unit tests                  | TESTS          |
+| scripts              | scripts/                                | Batch shell scripts (run_ingest_all.sh)           | CLI_AUTOMATION |
 
+<!-- updated 2026-05-23: added scripts module -->
 ---
 
 ## FLOWS
@@ -208,6 +210,9 @@ Python >=3.13 required per pyproject.toml. No Dockerfile or .python-version foun
 | config/llm.yaml                               | LLM endpoint, model, timeout config             | llm                                         |
 | config/ingest.yaml                            | Admin section headings config                   | ingest-pipeline                             |
 | prompts/consult/system.md                     | LLM system prompt for consultation              | consult-pipeline                            |
+| src/main/retrieve.py                          | Retrieval debug script (dev/testing)            | retrieval-pipeline                          |
+
+<!-- updated 2026-05-23: added retrieve.py (ENTRYPOINTS↔KEY_FILES consistency fix) -->
 
 ---
 

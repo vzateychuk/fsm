@@ -30,6 +30,14 @@ class RetrieveRequest(SagaInput):
     # (например, "Лечение > Медикаменты" вернёт все подразделы этого пути)
     section_path_prefix: str | None = None
 
+    # SQL-фильтр: дата нижней границы документов (ISO формат YYYY-MM-DD, включающее);
+    # если задано, возвращаются только чанки из документов, где document_date >= from_date
+    from_date: str | None = None
+
+    # SQL-фильтр: дата верхней границы документов (ISO формат YYYY-MM-DD, включающее);
+    # если задано, возвращаются только чанки из документов, где document_date <= to_date
+    to_date: str | None = None
+
     # Максимальное количество ChunkSearchResult в итоговом ответе (после применения diversity)
     limit: int = 20
 

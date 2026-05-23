@@ -30,8 +30,15 @@ def consult(
     user_request: str,
     config_path: Path = typer.Option(Path("config/consult.yaml"), "--config"),
     env: str = typer.Option("prod", "--env", help="prod | test"),
+    from_date: str = typer.Option(None, "--from-date", help="Search from date (ISO format YYYY-MM-DD)"),
+    to_date: str = typer.Option(None, "--to-date", help="Search to date (ISO format YYYY-MM-DD)"),
 ) -> None:
-    """Medical consultation: user request -> retrieval KB -> LLM response."""
+    """Medical consultation: user request -> retrieval KB -> LLM response.
+
+    Optional date filtering:
+        --from-date YYYY-MM-DD    Search documents from this date onwards
+        --to-date YYYY-MM-DD      Search documents up to this date
+    """
     setup_logging(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
@@ -57,7 +64,7 @@ def consult(
     )
 
     logger.info("Starting consultation: %r", user_request)
-    result = asyncio.run(runner.run(ConsultRequest(user_request=user_request)))
+    result = asyncio.run(runner.run(ConsultRequest(user_request=user_request, from_date=from_date, to_date=to_date)))
     logger.info("Consultation complete.")
     print(result.response.raw_text if result.response else "")
 

@@ -12,7 +12,7 @@ The following findings are most directly relevant:
 
 {top_chunks}
 
-## Additional Context
+# Additional Context
 
 {kb_excerpts}
     

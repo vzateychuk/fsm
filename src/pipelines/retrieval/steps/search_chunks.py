@@ -65,6 +65,8 @@ class SearchChunks:
             document_id=ctx.input.document_id,
             kinds=kinds,
             section_path_prefix=ctx.input.section_path_prefix,
+            from_date=ctx.input.from_date,
+            to_date=ctx.input.to_date,
             limit=ctx.input.limit,
             limit_per_document=ctx.input.limit_per_document,
             prelimit=ctx.input.prelimit,

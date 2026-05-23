@@ -10,6 +10,10 @@ class ConsultRequest(SagaInput):
     """Input to the consultation pipeline."""
 
     user_request: str
+    from_date: str | None = None
+    """Optional search start date (ISO format YYYY-MM-DD). If not provided, defaults to lookback_days from config."""
+    to_date: str | None = None
+    """Optional search end date (ISO format YYYY-MM-DD). If not provided, defaults to today."""
 
 
 class KBContextBundle(BaseModel):
