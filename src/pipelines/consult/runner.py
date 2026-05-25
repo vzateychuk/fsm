@@ -7,7 +7,8 @@ from pathlib import Path
 from src.fsm.core import RunContext, SagaDefinition
 from src.fsm.saga import Saga
 from src.llm.llm_client import LLMClient
-from src.pipelines.consult.config import ConsultConfig, PatientInfo
+from src.common.patient import PatientInfo
+from src.pipelines.consult.config import ConsultConfig
 from src.pipelines.consult.models import ConsultData, ConsultRequest, ConsultResponse
 from src.pipelines.consult.steps import (
     BuildBundle,

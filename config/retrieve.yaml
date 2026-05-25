@@ -33,3 +33,11 @@ category_mode: "soft"
 # Примеры: 0.1 (10x penalty), 0.5 (2x penalty)
 # Чанки с kind="meta" всё равно попадают в результаты, но ранжируются ниже клинического контента
 meta_score_factor: 0.1
+
+# Usage-параметры запроса — используются всеми компонентами (consult, chat)
+# Максимальное число чанков из BM25-поиска по запросу
+query_top_k: 20
+# Не более N чанков из одного документа (diversity cap)
+query_limit_per_document: 3
+# Lookback period в днях от текущей даты для date window по умолчанию
+lookback_days: 365

@@ -2,6 +2,7 @@
 
 from pydantic import BaseModel
 
+from src.common.bundle_builder import KBContextBundle
 from src.fsm.models import SagaData, SagaInput
 from src.store.knowledge_store import ChunkSearchResult
 
@@ -17,14 +18,6 @@ class ConsultRequest(SagaInput):
     include_meta_chunks: bool = False
     """If False (default), chunks with kind='meta' are excluded from BM25 results.
     If True, meta chunks are included but ranked lower via meta_score_factor."""
-
-
-class KBContextBundle(BaseModel):
-    """Formatted knowledge base context for the medical LLM."""
-
-    top_chunks: list[str] = []
-    kb_excerpts: list[str] = []
-    provenance: list[str] = []
 
 
 class ConsultResponse(BaseModel):

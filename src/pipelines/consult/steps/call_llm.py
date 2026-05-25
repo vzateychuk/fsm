@@ -5,7 +5,7 @@ from typing import ClassVar
 from src.fsm.core import RunContext
 from src.llm.llm_client import LLMClient
 from src.llm.models import ChatRequest, Message
-from src.pipelines.consult.config import PatientInfo
+from src.common.patient import PatientInfo
 from src.pipelines.consult.models import ConsultData, ConsultRequest
 
 

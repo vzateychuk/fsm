@@ -34,8 +34,8 @@ class Retrieve:
         # Create base retrieve request
         retrieve_request = RetrieveRequest(
             query=runCtx.data.user_request,
-            limit=self.consult_config.retrieval.query_top_k,
-            limit_per_document=self.consult_config.retrieval.query_limit_per_document,
+            limit=self.retrieval_config.query_top_k,
+            limit_per_document=self.retrieval_config.query_limit_per_document,
             prelimit=self.retrieval_config.prelimit,
             include_meta_chunks=runCtx.input.include_meta_chunks,
         )
@@ -43,7 +43,7 @@ class Retrieve:
         # Compute from_date and to_date: use explicit values from request, or defaults from config
         today = date.today().isoformat()
         from_date = runCtx.input.from_date or (
-            date.today() - timedelta(days=self.consult_config.retrieval.lookback_days)
+            date.today() - timedelta(days=self.retrieval_config.lookback_days)
         ).isoformat()
         to_date = runCtx.input.to_date or today
 

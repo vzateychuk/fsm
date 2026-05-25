@@ -13,8 +13,8 @@ class RetrievalConfig:
     Load from config/retrieve.yaml using load() method, or create programmatically.
     Pass a single instance into RetrievalRunner; steps receive it via constructor.
 
-    Contains only retrieval system parameters (BM25 weights, prefix matching, category filtering).
-    Consultation-specific usage parameters (limits, diversity cap) are stored in ConsultConfig.retrieval.
+    Contains retrieval system parameters (BM25 weights, prefix matching, category filtering)
+    and per-caller usage defaults (query_top_k, query_limit_per_document, lookback_days).
     """
 
     # Количество строк BM25, которые SQLite возвращает до применения diversity-фильтра.
@@ -54,6 +54,18 @@ class RetrievalConfig:
     # Примеры: 0.1 (10x penalty), 0.5 (2x penalty), 1.0 (без штрафа).
     meta_score_factor: float = 0.1
 
+    # Максимальное число чанков, возвращаемых BM25-запросом.
+    # Используется как 'limit' в RetrieveRequest.
+    query_top_k: int = 20
+
+    # Максимальное число чанков из одного документа в BM25-результатах (diversity cap).
+    # Используется как 'limit_per_document' в RetrieveRequest.
+    query_limit_per_document: int = 3
+
+    # Lookback period в днях от текущей даты для BM25-запроса по умолчанию.
+    # Используется для вычисления from_date, если он не задан явно.
+    lookback_days: int = 365
+
     @classmethod
     def load(cls, config_path: Path) -> RetrievalConfig:
         """Load config from YAML file.
@@ -74,5 +86,8 @@ class RetrievalConfig:
             prefix_min_len=data.get("prefix_min_len", 5),
             category_mode=data.get("category_mode", "soft"),
             meta_score_factor=data.get("meta_score_factor", 0.1),
+            query_top_k=data.get("query_top_k", 20),
+            query_limit_per_document=data.get("query_limit_per_document", 3),
+            lookback_days=data.get("lookback_days", 365),
         )
 

@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
 import pytest
 
-from pipelines.consult.bundle_builder import KBContextBundleBuilder
+from common.bundle_builder import KBContextBundleBuilder
 from pipelines.consult.config import ConsultConfig
 from store.knowledge_store import ChunkSearchResult
 
@@ -42,7 +42,7 @@ def make_chunk(
 def test_deduplication_query_priority():
     """Query chunks take priority over recency chunks with same chunk_id."""
     config = ConsultConfig.load("config/consult.yaml")
-    builder = KBContextBundleBuilder(config)
+    builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
     query_chunks = [
         make_chunk("c1", text="query version"),
@@ -65,7 +65,7 @@ def test_deduplication_query_priority():
 def test_max_total_chunks_limit():
     """Bundle respects max_total_chunks limit."""
     config = ConsultConfig.load("config/consult.yaml")
-    builder = KBContextBundleBuilder(config)
+    builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
     query_chunks = [make_chunk(f"c{i}", text=f"chunk {i}") for i in range(10)]
     recency_chunks = [make_chunk(f"c{10+i}", text=f"chunk {10+i}") for i in range(10)]
@@ -79,7 +79,7 @@ def test_max_total_chunks_limit():
 def test_max_total_chars_applied_after_truncation():
     """max_total_chars limit is enforced AFTER line truncation."""
     config = ConsultConfig.load("config/consult.yaml")
-    builder = KBContextBundleBuilder(config)
+    builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
     long_text = "\n".join([f"line {i}" for i in range(100)])
     query_chunks = [make_chunk("c1", text=long_text, category="Unknown")]
@@ -93,7 +93,7 @@ def test_max_total_chars_applied_after_truncation():
 def test_full_text_categories_no_truncation():
     """full_text_categories are not truncated (full text preserved)."""
     config = ConsultConfig.load("config/consult.yaml")
-    builder = KBContextBundleBuilder(config)
+    builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
     long_text = "\n".join([f"line {i}" for i in range(100)])
     query_chunks = [
@@ -113,7 +113,7 @@ def test_full_text_categories_no_truncation():
 def test_category_line_limits_applied():
     """category_line_limits are enforced for specific categories."""
     config = ConsultConfig.load("config/consult.yaml")
-    builder = KBContextBundleBuilder(config)
+    builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
     long_text = "\n".join([f"line {i}" for i in range(100)])
     query_chunks = [
@@ -133,7 +133,7 @@ def test_category_line_limits_applied():
 def test_max_lines_default_for_unknown_category():
     """Unknown categories use max_lines_default."""
     config = ConsultConfig.load("config/consult.yaml")
-    builder = KBContextBundleBuilder(config)
+    builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
     long_text = "\n".join([f"line {i}" for i in range(100)])
     query_chunks = [
@@ -153,7 +153,7 @@ def test_max_lines_default_for_unknown_category():
 def test_top_chunks_come_first():
     """Top chunks are formatted separately and come first."""
     config = ConsultConfig.load("config/consult.yaml")
-    builder = KBContextBundleBuilder(config)
+    builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
     query_chunks = [make_chunk(f"c{i}", text=f"chunk {i}") for i in range(10)]
 
@@ -167,7 +167,7 @@ def test_top_chunks_come_first():
 def test_top_chunks_truncated_to_lines():
     """Top chunks are truncated to top_chunks_lines."""
     config = ConsultConfig.load("config/consult.yaml")
-    builder = KBContextBundleBuilder(config)
+    builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
     long_text = "\n".join([f"line {i}" for i in range(20)])
     query_chunks = [make_chunk("c1", text=long_text)]
@@ -183,7 +183,7 @@ def test_top_chunks_truncated_to_lines():
 def test_provenance_format():
     """Provenance entries follow format: doc_id | source_path | section_path."""
     config = ConsultConfig.load("config/consult.yaml")
-    builder = KBContextBundleBuilder(config)
+    builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
     chunks = [make_chunk(f"c{i}", text=f"short {i}") for i in range(config.excerpts.top_chunks_count)]
     chunk_with_section = ChunkSearchResult(
@@ -217,7 +217,7 @@ def test_provenance_format():
 def test_empty_input():
     """Empty input results in empty bundle (no exceptions)."""
     config = ConsultConfig.load("config/consult.yaml")
-    builder = KBContextBundleBuilder(config)
+    builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
     result = builder.build([], [])
 
@@ -229,7 +229,7 @@ def test_empty_input():
 def test_multiple_categories_mixed():
     """Mixed categories are handled correctly."""
     config = ConsultConfig.load("config/consult.yaml")
-    builder = KBContextBundleBuilder(config)
+    builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
     long_text = "\n".join([f"line {i}" for i in range(100)])
     query_chunks = [

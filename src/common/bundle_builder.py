@@ -1,10 +1,51 @@
-"""Knowledge base context bundle builder."""
+"""Shared KB context bundle configuration, model, and builder."""
 
-from datetime import date, timedelta
+from __future__ import annotations
 
-from src.pipelines.consult.config import ConsultConfig
-from src.pipelines.consult.models import KBContextBundle
+from dataclasses import dataclass, field
+
+from pydantic import BaseModel
+
 from src.store.knowledge_store import ChunkSearchResult
+
+
+@dataclass
+class BundleConfig:
+    """Configuration for bundle assembly.
+
+    Controls aggregation and size limits for the knowledge base context bundle.
+    """
+
+    max_total_chunks: int
+    """Hard limit on total chunks in the final bundle (query + recency combined)."""
+    max_total_chars: int
+    """Hard limit on total characters in the final bundle.
+    Applied AFTER line-truncation. Chunks are dropped from the tail until total fits.
+    """
+
+
+@dataclass
+class ExcerptsConfig:
+    """Configuration for excerpt formatting and truncation."""
+
+    top_chunks_count: int
+    """Number of highest-ranked chunks to promote to 'Top Chunks' section."""
+    top_chunks_lines: int
+    """Line limit for each chunk in the Top Chunks section."""
+    max_lines_default: int
+    """Default line limit for categories without explicit limits."""
+    max_chunk_chars: int = 0
+    """Maximum characters per chunk. 0 means no limit. Applied after line truncation."""
+    category_line_limits: dict[str, int] = field(default_factory=dict)
+    """Per-category line limits. Categories not listed fall back to max_lines_default."""
+
+
+class KBContextBundle(BaseModel):
+    """Formatted knowledge base context for the medical LLM."""
+
+    top_chunks: list[str] = []
+    kb_excerpts: list[str] = []
+    provenance: list[str] = []
 
 
 class KBContextBundleBuilder:
@@ -21,8 +62,9 @@ class KBContextBundleBuilder:
     8. Format with inline source attribution ([index] doc_id | chunk_N | section)
     """
 
-    def __init__(self, config: ConsultConfig) -> None:
-        self.config = config
+    def __init__(self, bundle_config: BundleConfig, excerpts_config: ExcerptsConfig) -> None:
+        self.bundle_config = bundle_config
+        self.excerpts_config = excerpts_config
 
     def build(
         self,
@@ -40,21 +82,18 @@ class KBContextBundleBuilder:
             Provenance is included as source headers within each chunk text.
         """
         merged = self._deduplicate(query_chunks, recency_chunks)
-        merged = merged[: self.config.bundle.max_total_chunks]
+        merged = merged[: self.bundle_config.max_total_chunks]
 
         formatted = self._format_by_category(merged)
         formatted = self._truncate_to_char_limit(formatted)
 
-        top_chunks_list = formatted[: self.config.excerpts.top_chunks_count]
-        kb_excerpts_list = formatted[self.config.excerpts.top_chunks_count :]
-
-        # Format chunks with inline source attribution: [i] doc_id | chunk_N | section_path
-        # all_chunks_shown = top_chunks_list + kb_excerpts_list
+        top_chunks_list = formatted[: self.excerpts_config.top_chunks_count]
+        kb_excerpts_list = formatted[self.excerpts_config.top_chunks_count :]
 
         top_chunks_text = []
         for i, chunk in enumerate(top_chunks_list, start=1):
             source_header = self._format_source_header(i, chunk)
-            text = self._truncate_text_lines(chunk.text, self.config.excerpts.top_chunks_lines)
+            text = self._truncate_text_lines(chunk.text, self.excerpts_config.top_chunks_lines)
             top_chunks_text.append(f"{source_header}\n\n{text}")
 
         kb_excerpts_text = []
@@ -65,7 +104,7 @@ class KBContextBundleBuilder:
         return KBContextBundle(
             top_chunks=top_chunks_text,
             kb_excerpts=kb_excerpts_text,
-            provenance=[],  # Sources now inline in each chunk
+            provenance=[],  # Sources are inline in each chunk
         )
 
     @staticmethod
@@ -73,10 +112,7 @@ class KBContextBundleBuilder:
         query_chunks: list[ChunkSearchResult],
         recency_chunks: list[ChunkSearchResult],
     ) -> list[ChunkSearchResult]:
-        """Deduplicate by chunk_id, preserving query priority.
-
-        Query chunks appear first in the result, then new recency chunks.
-        """
+        """Deduplicate by chunk_id, preserving query priority."""
         seen: set[str] = set()
         result: list[ChunkSearchResult] = []
 
@@ -96,18 +132,13 @@ class KBContextBundleBuilder:
         self,
         chunks: list[ChunkSearchResult],
     ) -> list[ChunkSearchResult]:
-        """Truncate text by category rules, then by char limit.
-
-        Applies line truncation first (category-specific or default),
-        then char truncation if max_chunk_chars > 0.
-        Returns new ChunkSearchResult objects with truncated text.
-        """
+        """Truncate text by category rules, then optionally by char limit."""
         formatted: list[ChunkSearchResult] = []
         for chunk in chunks:
             max_lines = self._get_max_lines_for_category(chunk.category)
             text = self._truncate_text_lines(chunk.text, max_lines)
-            if self.config.excerpts.max_chunk_chars > 0:
-                text = self._truncate_text_chars(text, self.config.excerpts.max_chunk_chars)
+            if self.excerpts_config.max_chunk_chars > 0:
+                text = self._truncate_text_chars(text, self.excerpts_config.max_chunk_chars)
             formatted.append(
                 ChunkSearchResult(
                     chunk_id=chunk.chunk_id,
@@ -127,18 +158,12 @@ class KBContextBundleBuilder:
         return formatted
 
     def _get_max_lines_for_category(self, category: str) -> int:
-        """Get max lines allowed for a category.
-
-        - category_line_limits: return configured limit
-        - default: return max_lines_default
-        """
-        if category in self.config.excerpts.category_line_limits:
-            return self.config.excerpts.category_line_limits[category]
-        return self.config.excerpts.max_lines_default
+        if category in self.excerpts_config.category_line_limits:
+            return self.excerpts_config.category_line_limits[category]
+        return self.excerpts_config.max_lines_default
 
     @staticmethod
     def _truncate_text_lines(text: str, max_lines: int) -> str:
-        """Truncate text to max_lines (counted from start)."""
         lines = text.split("\n")
         if len(lines) <= max_lines:
             return text
@@ -146,12 +171,6 @@ class KBContextBundleBuilder:
 
     @staticmethod
     def _truncate_text_chars(text: str, max_chars: int) -> str:
-        """Truncate text to max_chars characters.
-
-        Cuts at the last newline boundary within the limit to avoid
-        splitting a list item or sentence in the middle.
-        If no newline found within limit, cuts at max_chars directly.
-        """
         if len(text) <= max_chars:
             return text
         cut = text[:max_chars]
@@ -164,26 +183,19 @@ class KBContextBundleBuilder:
         self,
         chunks: list[ChunkSearchResult],
     ) -> list[ChunkSearchResult]:
-        """Drop chunks from tail until total chars <= max_total_chars.
-
-        This is applied AFTER line truncation, to respect character budget.
-        """
+        """Drop chunks from tail until total chars <= max_total_chars."""
         total_chars = sum(len(chunk.text) for chunk in chunks)
-        if total_chars <= self.config.bundle.max_total_chars:
+        if total_chars <= self.bundle_config.max_total_chars:
             return chunks
 
         result = chunks.copy()
-        while result and sum(len(c.text) for c in result) > self.config.bundle.max_total_chars:
+        while result and sum(len(c.text) for c in result) > self.bundle_config.max_total_chars:
             result.pop()
 
         return result
 
     @staticmethod
     def _format_source_header(index: int, chunk: ChunkSearchResult) -> str:
-        """Format source attribution header for a chunk.
-
-        Format: [index] document_id#chunk_N | source_path | document_date | category | section_path
-        Placed inline before the chunk text so LLM directly associates text with source.
-        """
+        """Format: [index] document_id#chunk_N | document_date | category | section_path"""
         section = chunk.section_path or "(no section)"
         return f"[{index}] {chunk.document_id}#chunk_{chunk.chunk_no} | {chunk.document_date} | {chunk.category} | {section}"

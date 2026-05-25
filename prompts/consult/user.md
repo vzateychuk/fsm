@@ -8,11 +8,12 @@
 
 ## Top Relevant Excerpts
 
-The following findings are most directly relevant:
-
 {top_chunks}
 
-## Additional Context
+## Additional KB Evidence
 
 {kb_excerpts}
-    
+
+## Task
+
+Provide the medical analysis and recommendations as requested in the system instructions.
