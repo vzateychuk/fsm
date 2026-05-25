@@ -7,7 +7,13 @@ from typing import TYPE_CHECKING, Any
 
 import aiosqlite
 
-from store.knowledge_store import Category, ChunkKind, ChunkSearchResult, DocumentMetadata
+from store.knowledge_store import (
+    Category,
+    ChunkKind,
+    ChunkSearchResult,
+    DocSummary,
+    DocumentMetadata,
+)
 
 if TYPE_CHECKING:
     from pipelines.ingest.models import ChunkTagged
@@ -331,3 +337,49 @@ class SqliteKnowledgeStore:
             )
             for row in rows
         ]
+
+    async def list_docs(
+        self,
+        *,
+        from_date: str | None = None,
+        limit: int = 50,
+    ) -> list[DocSummary]:
+        doc_sql = "SELECT id, category, document_date FROM documents"
+        doc_params: list[Any] = []
+        if from_date:
+            doc_sql += " WHERE document_date >= ?"
+            doc_params.append(from_date)
+        doc_sql += " ORDER BY document_date DESC LIMIT ?"
+        doc_params.append(limit)
+
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(doc_sql, doc_params) as cursor:
+                doc_rows = await cursor.fetchall()
+
+            results: list[DocSummary] = []
+            for doc in doc_rows:
+                async with conn.execute(
+                    "SELECT section_path FROM chunks"
+                    " WHERE document_id = ? AND kind != 'meta' AND section_path IS NOT NULL"
+                    " ORDER BY chunk_no ASC",
+                    (doc["id"],),
+                ) as cursor:
+                    section_rows = await cursor.fetchall()
+
+                seen: dict[str, None] = {}
+                for row in section_rows:
+                    top = row["section_path"].split(" > ")[0].strip()
+                    if top:
+                        seen[top] = None
+
+                results.append(
+                    DocSummary(
+                        document_id=doc["id"],
+                        document_date=doc["document_date"],
+                        category=doc["category"],
+                        top_sections=tuple(seen.keys()),
+                    )
+                )
+
+        return results

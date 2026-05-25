@@ -122,16 +122,20 @@ AgenticLoopRunner          ◄─── владелец: history, system_messag
 1) **Пациент → CLI**
    Пациент вводит жалобу (или отвечает на ранее заданные вопросы).
 
-2) **CLI → KB (baseline retrieval)**
-   CLI запускает `BaselineRetriever.run(query)`:
+2) **CLI → KB (baseline retrieval, только первый turn)**
+   На первом turn CLI запускает `BaselineRetriever.run(query)`:
    - query bundle: `RetrievalRunner` (BM25) по тексту жалобы с date window
    - recency bundle: прямой запрос `KnowledgeStore.list_documents_by_date()` — N последних документов
 
-3) **KB → CLI**
+   На последующих turns (ответы пациента на уточняющие вопросы модели) этот шаг пропускается.
+   Модель сама инициирует `kb.search_chunks` через tool_calls, если ей нужен дополнительный контекст.
+
+3) **KB → CLI** (только первый turn)
    KB возвращает `KBContextBundle` (excerpts + provenance/refs).
 
-4) **CLI → AgenticLoopRunner (первый вызов)**
-   CLI формирует user message: Patient Request + Top Excerpts + Additional KB Evidence + Sources.
+4) **CLI → AgenticLoopRunner**
+   - Первый turn: CLI формирует user message из шаблона: Patient Request + Top Excerpts + Additional KB Evidence.
+   - Последующие turns: CLI передаёт сырой ввод пациента напрямую, без retrieval и шаблона.
    Передаёт в `AgenticLoopRunner.run(user_message)`.
 
 5) **AgenticLoopRunner → LLM (первый вызов)**
@@ -390,21 +394,21 @@ chat                                   # объявлен в [project.scripts]
 ### G.2 Флаги
 
 ```
---config PATH    путь к config/chat.yaml (default: config/chat.yaml)
---env ENUM       prod | test (default: prod)
+--config PATH      путь к config/chat.yaml (default: config/chat.yaml)
+--env ENUM         prod | test (default: prod)
+--debug            включить DEBUG-уровень логирования
+--log-file PATH    дополнительно писать логи в файл
 ```
 
 ### G.3 Поведение
 
-1. Инициализация: загрузить конфиг, создать `AgenticLoopRunner`.
-2. Запросить первую жалобу пациента (`> `).
-3. Выполнить baseline retrieval по жалобе.
-4. Сформировать первый user message из результатов retrieval и передать в `AgenticLoopRunner.run(user_message)`.
+1. Инициализация: загрузить конфиг, создать `AgenticLoopRunner` и `BaselineRetriever`.
+2. Запросить ввод пациента (`> `).
+3. **Если это первый turn:** выполнить baseline retrieval по жалобе, сформировать user message из шаблона (Patient Request + KB excerpts), передать в `AgenticLoopRunner.run(user_message)`.
+4. **Если это последующий turn:** передать сырой ввод пациента напрямую в `AgenticLoopRunner.run(user_input)` без retrieval. Модель сама запрашивает KB через `kb.search_chunks` tool calls, если это необходимо.
 5. Вывести ответ модели.
-6. Перейти к шагу 2 (REPL: читать следующий ввод пациента).
+6. Перейти к шагу 2.
 7. Завершить сессию при EOF (`Ctrl+D`) или команде `quit`/`exit`.
-
-Примечание: начиная со второго turn пациента baseline retrieval повторяется по новому вводу — чтобы контекст KB соответствовал текущей теме разговора.
 
 ---
 

@@ -21,6 +21,14 @@ class DocumentMetadata:
 
 
 @dataclass(frozen=True, slots=True)
+class DocSummary:
+    document_id: str
+    document_date: str  # ISO format YYYY-MM-DD
+    category: Category
+    top_sections: tuple[str, ...]  # deduplicated top-level section names, ordered by first appearance
+
+
+@dataclass(frozen=True, slots=True)
 class ChunkSearchResult:
     chunk_id: str
     document_id: str
@@ -121,5 +129,20 @@ class KnowledgeStore(Protocol):
         Used by recency bundle to fetch initial chunks from recent documents.
         Returned chunks have rank=0.0 (positional retrieval, not BM25-ranked).
         If include_meta_chunks=False, chunks with kind='meta' are excluded.
+        """
+        ...
+
+    async def list_docs(
+        self,
+        *,
+        from_date: str | None = None,
+        limit: int = 50,
+    ) -> list[DocSummary]:
+        """Return documents ordered by document_date DESC with deduplicated top-level sections.
+
+        from_date: optional lower bound (YYYY-MM-DD inclusive).
+        limit: max number of documents to return.
+        top_sections are extracted from the first segment of section_path (split on ' > ')
+        and deduplicated while preserving chunk_no order.
         """
         ...

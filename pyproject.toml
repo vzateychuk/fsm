@@ -25,6 +25,7 @@ dev = [
 
 [project.scripts]
 advisor = "src.main.consult:app"
+chat = "src.main.chat:app"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
