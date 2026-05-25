@@ -1,13 +1,13 @@
 """OpenAI-compatible LLM client implementation."""
 
+import json
 import typing as t
 
 from openai import AsyncOpenAI, APIError
 
 from src.llm.errors import LLMError
-from src.llm.models import ChatRequest, ChatResponse
-from src.pipelines.consult.config import LLMConfig
-
+from src.llm.models import ChatRequest, ChatResponse, Message, ToolCall
+from src.llm.config import LLMConfig
 
 
 class OpenAICompatibleClient:
@@ -33,22 +33,16 @@ class OpenAICompatibleClient:
         """Execute a chat completion request.
 
         Args:
-            req: Request containing messages.
+            req: Request containing messages and optional tool definitions.
 
         Returns:
-            ChatResponse with the LLM's text response.
+            ChatResponse with the LLM's text response and any requested tool calls.
 
         Raises:
             LLMError: If the API call fails.
         """
         try:
-            messages = [
-                {
-                    "role": msg.role,
-                    "content": msg.content,
-                }
-                for msg in req.messages
-            ]
+            messages = [self._serialize_message(msg) for msg in req.messages]
 
             request_kwargs: dict[str, t.Any] = {
                 "model": self.cfg.model,
@@ -58,6 +52,19 @@ class OpenAICompatibleClient:
                 "stream": self.cfg.stream,
                 "max_tokens": self.cfg.max_tokens,
             }
+
+            if req.tools:
+                request_kwargs["tools"] = [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": tool.name,
+                            "description": tool.description,
+                            "parameters": tool.parameters,
+                        },
+                    }
+                    for tool in req.tools
+                ]
 
             # Provider-specific thinking/CoT support (e.g. NVIDIA chat_template_kwargs).
             # enable_thinking=True translates to {"chat_template_kwargs": {"enable_thinking": True}}
@@ -71,7 +78,40 @@ class OpenAICompatibleClient:
 
             response = await self.client.chat.completions.create(**request_kwargs)
 
-            text = response.choices[0].message.content or ""
-            return ChatResponse(text=text)
+            message = response.choices[0].message
+            text = message.content or ""
+
+            tool_calls: list[ToolCall] = []
+            if message.tool_calls:
+                for tc in message.tool_calls:
+                    tool_calls.append(
+                        ToolCall(
+                            id=tc.id,
+                            name=tc.function.name,
+                            arguments=json.loads(tc.function.arguments),
+                        )
+                    )
+
+            return ChatResponse(text=text, tool_calls=tool_calls)
         except APIError as e:
             raise LLMError(f"LLM API error: {e}") from e
+
+    @staticmethod
+    def _serialize_message(msg: Message) -> dict[str, t.Any]:
+        """Serialize a Message to the OpenAI API dict format."""
+        d: dict[str, t.Any] = {"role": msg.role, "content": msg.content}
+        if msg.tool_call_id is not None:
+            d["tool_call_id"] = msg.tool_call_id
+        if msg.tool_calls:
+            d["tool_calls"] = [
+                {
+                    "id": tc.id,
+                    "type": "function",
+                    "function": {
+                        "name": tc.name,
+                        "arguments": json.dumps(tc.arguments, ensure_ascii=False),
+                    },
+                }
+                for tc in msg.tool_calls
+            ]
+        return d
