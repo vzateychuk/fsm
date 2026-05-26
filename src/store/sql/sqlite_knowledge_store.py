@@ -344,42 +344,48 @@ class SqliteKnowledgeStore:
         from_date: str | None = None,
         limit: int = 50,
     ) -> list[DocSummary]:
-        doc_sql = "SELECT id, category, document_date FROM documents"
-        doc_params: list[Any] = []
+        where_clause = " WHERE document_date >= ?" if from_date else ""
+        sql = (
+            f"WITH limited_docs AS ("
+            f" SELECT id, category, document_date FROM documents{where_clause}"
+            f" ORDER BY document_date DESC LIMIT ?"
+            f") SELECT d.id, d.category, d.document_date, c.section_path"
+            f" FROM limited_docs d"
+            f" LEFT JOIN chunks c"
+            f" ON c.document_id = d.id AND c.kind != 'meta' AND c.section_path IS NOT NULL"
+            f" ORDER BY d.document_date DESC, d.id ASC, c.chunk_no ASC"
+        )
+        params: list[Any] = []
         if from_date:
-            doc_sql += " WHERE document_date >= ?"
-            doc_params.append(from_date)
-        doc_sql += " ORDER BY document_date DESC LIMIT ?"
-        doc_params.append(limit)
+            params.append(from_date)
+        params.append(limit)
 
         async with aiosqlite.connect(self.db_path) as conn:
             conn.row_factory = aiosqlite.Row
-            async with conn.execute(doc_sql, doc_params) as cursor:
-                doc_rows = await cursor.fetchall()
+            async with conn.execute(sql, params) as cursor:
+                rows = await cursor.fetchall()
 
-            results: list[DocSummary] = []
-            for doc in doc_rows:
-                async with conn.execute(
-                    "SELECT section_path FROM chunks"
-                    " WHERE document_id = ? AND kind != 'meta' AND section_path IS NOT NULL"
-                    " ORDER BY chunk_no ASC",
-                    (doc["id"],),
-                ) as cursor:
-                    section_rows = await cursor.fetchall()
+        docs_order: dict[str, None] = {}
+        doc_meta: dict[str, tuple[str, str]] = {}
+        doc_sections: dict[str, dict[str, None]] = {}
 
-                seen: dict[str, None] = {}
-                for row in section_rows:
-                    top = row["section_path"].split(" > ")[0].strip()
-                    if top:
-                        seen[top] = None
+        for row in rows:
+            doc_id = row["id"]
+            if doc_id not in docs_order:
+                docs_order[doc_id] = None
+                doc_meta[doc_id] = (row["category"], row["document_date"])
+                doc_sections[doc_id] = {}
+            if row["section_path"]:
+                top = row["section_path"].split(" > ")[0].strip()
+                if top:
+                    doc_sections[doc_id][top] = None
 
-                results.append(
-                    DocSummary(
-                        document_id=doc["id"],
-                        document_date=doc["document_date"],
-                        category=doc["category"],
-                        top_sections=tuple(seen.keys()),
-                    )
-                )
-
-        return results
+        return [
+            DocSummary(
+                document_id=doc_id,
+                document_date=doc_meta[doc_id][1],
+                category=doc_meta[doc_id][0],
+                top_sections=tuple(doc_sections[doc_id].keys()),
+            )
+            for doc_id in docs_order
+        ]

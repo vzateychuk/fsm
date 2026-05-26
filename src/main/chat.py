@@ -26,6 +26,7 @@ from src.llm.mock import MockLLMClient
 from src.llm.openai_client import OpenAICompatibleClient
 from src.pipelines.retrieval.config import RetrievalConfig
 from src.pipelines.retrieval.runner import RetrievalRunner
+from src.store.knowledge_store import DocSummary
 from src.store.sql.sqlite_knowledge_store import SqliteKnowledgeStore
 
 app = typer.Typer(add_completion=False)
@@ -38,7 +39,24 @@ def _format_list(items: list[str]) -> str:
     return ", ".join(items) if items else "None"
 
 
-def _build_system_message(template: str, patient: PatientInfo, now_date: str) -> str:
+def _format_document_index(docs: list[DocSummary]) -> str:
+    """Format a list of DocSummary as a labeled table for the system prompt index.
+
+    Returns the table rows only (header + data) — the section heading is in the
+    system prompt template, not here.
+    """
+    if not docs:
+        return "(no documents in knowledge base)"
+    lines = ["document_id | date | category | sections"]
+    for doc in docs:
+        sections = ", ".join(doc.top_sections) if doc.top_sections else "—"
+        lines.append(f"{doc.document_id} | {doc.document_date} | {doc.category} | {sections}")
+    return "\n".join(lines)
+
+
+def _build_system_message(
+    template: str, patient: PatientInfo, now_date: str, document_index: str = ""
+) -> str:
     return template.format(
         age=patient.age,
         sex=patient.sex,
@@ -46,6 +64,7 @@ def _build_system_message(template: str, patient: PatientInfo, now_date: str) ->
         current_medications=_format_list(patient.current_medications),
         allergies=_format_list(patient.allergies),
         now_date=now_date,
+        document_index=document_index,
     )
 
 
@@ -104,13 +123,15 @@ async def _chat_loop(
 def chat(
     config_path: Path = typer.Option(Path("config/chat.yaml"), "--config"),  # noqa: B008
     env: str = typer.Option("prod", "--env", help="prod | test"),  # noqa: B008
-    debug: bool = typer.Option(False, "--debug", help="Enable DEBUG-level logging."),  # noqa: B008
+    debug: bool = typer.Option(False, "--debug", help="Enable DEBUG-level logging (all loggers, including libraries)."),  # noqa: B008
+    pkg_debug: bool = typer.Option(False, "--pkg-debug", help="Enable DEBUG-level logging for project packages only."),  # noqa: B008
     log_file: Path | None = typer.Option(None, "--log-file", help="Write logs to file."),  # noqa: B008
 ) -> None:
     """Agentic medical consultation: interactive REPL with KB tool access."""
     setup_logging(
         level=logging.DEBUG if debug else logging.INFO,
         log_file=str(log_file) if log_file else None,
+        debug_packages=pkg_debug,
     )
 
     chat_config = ChatConfig.load(config_path)
@@ -141,7 +162,10 @@ def chat(
 
     system_template = Path("prompts/chat/system.md").read_text(encoding="utf-8")
     user_template = Path("prompts/chat/user.md").read_text(encoding="utf-8")
-    system_message = _build_system_message(system_template, patient, _date.today().isoformat())
+    now_date = _date.today().isoformat()
+    all_docs = asyncio.run(store.list_docs(limit=200))
+    document_index = _format_document_index(all_docs)
+    system_message = _build_system_message(system_template, patient, now_date, document_index)
 
     agentic_runner = AgenticLoopRunner(
         llm_client=llm_client,

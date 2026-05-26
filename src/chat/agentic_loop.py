@@ -50,13 +50,16 @@ _KB_SEARCH_TOOL = ToolDefinition(
     },
 )
 
+# TODO : переместить в config
 _KB_GET_DOCUMENT_TOOL = ToolDefinition(
     name="kb.get_document",
     description=(
         "Fetch all chunks from a specific document in the knowledge base.\n"
         "Use this when you know the document_id from the Medical Records Index and want\n"
         "to read its full content or specific sections.\n"
-        "Prefer this over kb.search_chunks when you need complete context from a known document."
+        "Prefer this over kb.search_chunks when you need complete context from a known document.\n"
+        "Always call this when the user explicitly asks to show, find, read, or retrieve\n"
+        "a document by its ID — even if some excerpts from that document are already in context."
     ),
     parameters={
         "type": "object",
