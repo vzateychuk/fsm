@@ -2,11 +2,44 @@
 
 from __future__ import annotations
 
+import os
+import re
 import typing as t
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
+
+
+_ENV_VAR_RE = re.compile(
+    r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)\}|(?P<plain>[A-Za-z_][A-Za-z0-9_]*))"
+)
+
+
+def _expand_env_vars(value: t.Any) -> t.Any:
+    """Recursively expand environment variables in YAML-loaded values.
+
+    Supports:
+        $VAR_NAME
+        ${VAR_NAME}
+    """
+
+    if isinstance(value, str):
+        def replace(match: re.Match[str]) -> str:
+            env_name = match.group("braced") or match.group("plain")
+            if env_name not in os.environ:
+                raise ValueError(f"Environment variable {env_name!r} is not set")
+            return os.environ[env_name]
+
+        return _ENV_VAR_RE.sub(replace, value)
+
+    if isinstance(value, dict):
+        return {key: _expand_env_vars(item) for key, item in value.items()}
+
+    if isinstance(value, list):
+        return [_expand_env_vars(item) for item in value]
+
+    return value
 
 
 @dataclass
@@ -55,6 +88,9 @@ class LLMConfig:
         """
         with open(config_path, encoding="utf-8") as f:
             data = yaml.safe_load(f)
+
+        data = _expand_env_vars(data)
+
         return cls(
             base_url=data["base_url"],
             api_key=data["api_key"],

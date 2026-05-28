@@ -166,8 +166,9 @@ class AgenticLoopRunner:
                 )
             )
 
-            logger.info(
-                "Tool call dispatched: roundtrip=%d tool_calls=%s",
+            logger.debug(
+                "Assistant response: '%s' dispatched: roundtrip=%d tool_calls=%s",
+                response.text,
                 roundtrips,
                 [tc.name for tc in response.tool_calls],
             )

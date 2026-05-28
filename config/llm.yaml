@@ -1,8 +1,8 @@
 # Configuration for LLM client (Ollama)
 
-base_url: "http://localhost:11434/v1"  # OpenAI-compatible endpoint
-api_key: "sk-ollama-api-key"  # API key
-model: "gemma-4:31b-cloud"                    # Model identifier
+base_url: "https://integrate.api.nvidia.com/v1"  # OpenAI-compatible endpoint
+api_key: ${NVIDIA_API_KEY}
+model: "minimaxai/minimax-m2.7"
 
 temperature: 0.1                            # Sampling temperature
 top_p: 0.9                                  # Top-p (nucleus) sampling parameter

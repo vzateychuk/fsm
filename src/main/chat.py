@@ -5,14 +5,16 @@ import asyncio
 import logging
 import os
 import sys
-from datetime import date as _date
+from datetime import UTC, datetime, date as _date
 from pathlib import Path
+
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
 
 import typer
+import aiosqlite
 
 from src.chat.agentic_loop import AgenticLoopRunner
 from src.chat.baseline_retriever import BaselineRetriever
@@ -32,6 +34,13 @@ from src.store.sql.sqlite_knowledge_store import SqliteKnowledgeStore
 app = typer.Typer(add_completion=False)
 
 _QUIT_COMMANDS = {"quit", "exit", "q"}
+
+
+async def _init_schema(db_path: str | Path) -> None:
+    """Initialize database schema from schema.sql."""
+    schema = (Path(__file__).parent.parent / "store" / "sql" / "schema.sql").read_text()
+    async with aiosqlite.connect(db_path) as conn:
+        await conn.executescript(schema)
 
 
 def _format_list(items: list[str]) -> str:
