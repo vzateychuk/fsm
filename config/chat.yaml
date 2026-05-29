@@ -1,9 +1,9 @@
 agentic_loop:
-  max_kb_roundtrips: 2          # сколько tool calls LLM может запросить в одном ответе (параллельно)
+  max_kb_roundtrips: 2          # сколько tool calls LLM может запросить в одном ответе
   max_tool_calls_per_turn: 3    # сколько циклов LLM→tools→LLM разрешено за один пациентский turn.
-  max_search_chunks: 15         # лимит чанков возвращаемых kb.search_chunks
-  max_search_chars: 8000        # лимит символов возвращаемых kb.search_chunks
-  max_get_document_chars: 32000 # лимит символов возвращаемых kb.get_document
+  max_search_chunks: 10         # лимит чанков возвращаемых kb.search_chunks
+  max_search_chars: 4000        # лимит символов возвращаемых kb.search_chunks
+  max_get_document_chars: 16000 # лимит символов возвращаемых kb.get_document
 
 recency:
   max_docs: 3

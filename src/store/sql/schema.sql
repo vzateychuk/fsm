@@ -38,3 +38,30 @@ CREATE TABLE IF NOT EXISTS saga_progress (
     state TEXT NOT NULL,
     source_path TEXT
 );
+
+CREATE TABLE IF NOT EXISTS sessions (
+    session_id  TEXT PRIMARY KEY,
+    title       TEXT NOT NULL,
+    status      TEXT NOT NULL DEFAULT 'active',
+    summary     TEXT,
+    created_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_status_updated
+    ON sessions(status, updated_at DESC);
+
+CREATE TABLE IF NOT EXISTS messages (
+    message_id      TEXT PRIMARY KEY,
+    session_id      TEXT NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
+    seq             INTEGER NOT NULL,
+    role            TEXT NOT NULL,
+    content         TEXT NOT NULL,
+    tool_call_id    TEXT,
+    tool_calls_json TEXT,
+    created_at      TEXT NOT NULL,
+    UNIQUE(session_id, seq)
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_session_seq
+    ON messages(session_id, seq);

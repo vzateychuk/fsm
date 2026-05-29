@@ -10,7 +10,6 @@ from pathlib import Path
 
 import yaml
 
-
 _ENV_VAR_RE = re.compile(
     r"\$(?:\{(?P<braced>[A-Za-z_][A-Za-z0-9_]*)\}|(?P<plain>[A-Za-z_][A-Za-z0-9_]*))"
 )
@@ -67,6 +66,16 @@ class LLMConfig:
     """Maximum number of tokens to generate."""
     max_retries: int = 1
     """Number of retries on transient API errors."""
+    retry_timeout_errors: bool = True
+    """Whether to retry requests that timeout (separate from max_retries)."""
+    retry_timeout_max_attempts: int = 3
+    """Maximum number of retry attempts for timeout errors."""
+    retry_timeout_initial_delay: float = 1.0
+    """Initial delay in seconds before first timeout retry."""
+    retry_timeout_max_delay: float = 30.0
+    """Maximum delay in seconds between timeout retries."""
+    retry_timeout_backoff_factor: float = 2.0
+    """Exponential backoff multiplier for timeout retries."""
     num_ctx: int = 16384
     """Context window size for model."""
     stream: bool = False
@@ -100,6 +109,11 @@ class LLMConfig:
             top_p=data.get("top_p", 0.9),
             max_tokens=data.get("max_tokens", 8192),
             max_retries=data.get("max_retries", 1),
+            retry_timeout_errors=data.get("retry_timeout_errors", True),
+            retry_timeout_max_attempts=data.get("retry_timeout_max_attempts", 3),
+            retry_timeout_initial_delay=data.get("retry_timeout_initial_delay", 1.0),
+            retry_timeout_max_delay=data.get("retry_timeout_max_delay", 30.0),
+            retry_timeout_backoff_factor=data.get("retry_timeout_backoff_factor", 2.0),
             num_ctx=data.get("num_ctx", 16384),
             stream=data.get("stream", False),
             enable_thinking=data.get("enable_thinking", False),

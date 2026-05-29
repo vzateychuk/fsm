@@ -108,17 +108,28 @@ class AgenticLoopRunner:
         tool_executor: KBToolExecutor,
         system_message: str,
         loop_config: ChatConfig,
+            history: list[Message] | None = None,
     ) -> None:
         self._llm = llm_client
         self._tool_executor = tool_executor
         self._system_message = system_message
         self._cfg = loop_config.agentic_loop
-        self._history: list[Message] = []
+        self._history: list[Message] = list(history) if history else []
+        self._save_cursor: int = len(self._history)
 
     @property
     def history(self) -> list[Message]:
         """Read-only view of the current conversation history (excluding system message)."""
         return list(self._history)
+
+    @property
+    def unsaved_messages(self) -> list[Message]:
+        """Messages added since the last save checkpoint."""
+        return list(self._history[self._save_cursor:])
+
+    def mark_saved(self) -> None:
+        """Move the save checkpoint to the current end of history."""
+        self._save_cursor = len(self._history)
 
     async def run(self, user_message: str) -> str:
         """Execute one patient turn: user message → agentic loop → final text.
@@ -207,8 +218,7 @@ class AgenticLoopRunner:
 
         Args:
             with_tools: When True, includes the kb.search_chunks tool definition.
-                        When False, sends a tools-free request (e.g. for final call
-                        after budget exhaustion).
+                        When False, sends a tools-free request (e.g. for final call after budget exhaustion).
         """
         system_msg = Message(role="system", content=self._system_message)
         messages = [system_msg] + self._history

@@ -5,9 +5,9 @@ import asyncio
 import logging
 import os
 import sys
-from datetime import UTC, datetime, date as _date
+from datetime import datetime, date as _date, UTC
 from pathlib import Path
-
+from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 if hasattr(sys.stdout, "reconfigure"):
@@ -26,10 +26,13 @@ from src.common.utils.parsers import load_categories
 from src.llm.config import LLMConfig
 from src.llm.mock import MockLLMClient
 from src.llm.openai_client import OpenAICompatibleClient
+from src.llm.retry_client import RetryLLMClient, RetryConfig
 from src.pipelines.retrieval.config import RetrievalConfig
 from src.pipelines.retrieval.runner import RetrievalRunner
 from src.store.knowledge_store import DocSummary
+from src.store.models import SessionRecord
 from src.store.sql.sqlite_knowledge_store import SqliteKnowledgeStore
+from src.store.sql.sqlite_internal_store import SqliteInternalStore
 
 app = typer.Typer(add_completion=False)
 
@@ -91,18 +94,27 @@ async def _chat_loop(
     runner: AgenticLoopRunner,
     retriever: BaselineRetriever,
     user_template: str,
+        internal_store: SqliteInternalStore,
+        session_id: str,
+        do_first_turn_retrieval: bool = True,
 ) -> None:
     """Run the interactive REPL until EOF or quit command.
 
-    Baseline KB retrieval is performed only on the first turn, when the patient
-    describes their complaint. Subsequent turns (answers to the model's follow-up
-    questions) are passed directly to AgenticLoopRunner — the LLM issues
-    kb.search_chunks tool calls itself if it needs more context.
+    Baseline KB retrieval is performed only on the first turn when do_first_turn_retrieval
+    is True and the patient describes their complaint. This is True for new sessions but
+    False for resumed sessions (where history is already loaded). Subsequent turns (answers
+    to the model's follow-up questions) are passed directly to AgenticLoopRunner — the LLM
+    issues kb.search_chunks tool calls itself if it needs more context.
+
+    After each turn, unsaved messages are persisted to the store and the save
+    cursor is advanced.
+
+    Args:
+        do_first_turn_retrieval: If True, perform baseline retrieval on first user input.
+                                 If False (for resumed sessions), pass input directly.
     """
     print("Medical consultation started. Type your complaint and press Enter.")
     print("Type 'quit' or press Ctrl+D to exit.\n")
-
-    first_turn = True
 
     while True:
         try:
@@ -117,20 +129,78 @@ async def _chat_loop(
             print("Session ended.")
             break
 
-        if first_turn:
+        if do_first_turn_retrieval:
             bundle = await retriever.run(user_input)
             user_message = _build_user_message(user_template, user_input, bundle.top_chunks, bundle.kb_excerpts)
-            first_turn = False
+            do_first_turn_retrieval = False
         else:
             user_message = user_input
 
         response = await runner.run(user_message)
+
+        # Save new messages after each turn
+        unsaved = runner.unsaved_messages
+        if unsaved:
+            await internal_store.save_messages(session_id, runner.history)
+            runner.mark_saved()
+
+        # Update session timestamp
+        session = await internal_store.get_session(session_id)
+        if session:
+            session.updated_at = datetime.now(UTC).isoformat()
+            await internal_store.upsert_session(session)
+
         print(f"\n{response}\n")
+
+
+async def _list_sessions(internal_store: SqliteInternalStore) -> str | None:
+    """Display all sessions and let user choose one or create new."""
+    sessions = await internal_store.list_sessions(include_archived=False)
+
+    if not sessions:
+        print("No sessions found.")
+        return None
+
+    print("\nAvailable sessions:")
+    for i, sess in enumerate(sessions, start=1):
+        status_marker = "[P]" if sess.status == "pinned" else "    "
+        print(f"{status_marker} {i}. {sess.title} ({sess.updated_at[:10]})")
+
+    try:
+        choice = input("\nSelect session (number) or 'n' for new: ").strip()
+        if choice.lower() == "n":
+            return None
+        idx = int(choice) - 1
+        if 0 <= idx < len(sessions):
+            return sessions[idx].session_id
+    except (ValueError, IndexError):
+        pass
+    return None
+
+
+async def _create_session(internal_store: SqliteInternalStore, first_message: str) -> str:
+    """Create a new session with auto-generated title from first message."""
+    session_id = str(uuid4())
+    now = datetime.now(UTC).isoformat()
+    # Auto-title: first 50 chars of the user's first message
+    auto_title = first_message[:50] if first_message else "New session"
+
+    session = SessionRecord(
+        session_id=session_id,
+        title=auto_title,
+        status="active",
+        created_at=now,
+        updated_at=now,
+        summary=None,
+    )
+    await internal_store.upsert_session(session)
+    return session_id
 
 
 @app.command()
 def chat(
     config_path: Path = typer.Option(Path("config/chat.yaml"), "--config"),  # noqa: B008
+        session: str | None = typer.Option(None, "--session", help="Session ID to resume"),  # noqa: B008
     env: str = typer.Option("prod", "--env", help="prod | test"),  # noqa: B008
     debug: bool = typer.Option(False, "--debug", help="Enable DEBUG-level logging (all loggers, including libraries)."),  # noqa: B008
     pkg_debug: bool = typer.Option(False, "--pkg-debug", help="Enable DEBUG-level logging for project packages only."),  # noqa: B008
@@ -149,7 +219,9 @@ def chat(
     patient = PatientInfo.load(Path("config/patient.yaml"))
 
     db_path = os.getenv("DB_PATH", ".data/db/ingest.db")
+    asyncio.run(_init_schema(db_path))
     store = SqliteKnowledgeStore(db_path=db_path)
+    internal_store = SqliteInternalStore(db_path=db_path)
     retrieval_runner = RetrievalRunner(store=store, config=retrieval_config)
 
     allowed_categories = frozenset(load_categories(Path("config/categories.yaml")))
@@ -165,9 +237,20 @@ def chat(
     )
 
     if env == "test":
-        llm_client: MockLLMClient | OpenAICompatibleClient = MockLLMClient()
+        llm_client: MockLLMClient | OpenAICompatibleClient | RetryLLMClient = MockLLMClient()
     else:
-        llm_client = OpenAICompatibleClient(config=llm_config)
+        base_client = OpenAICompatibleClient(config=llm_config)
+        # Wrap with retry logic if enabled in config
+        if llm_config.retry_timeout_errors:
+            retry_config = RetryConfig(
+                max_retries=llm_config.retry_timeout_max_attempts - 1,
+                initial_delay_sec=llm_config.retry_timeout_initial_delay,
+                max_delay_sec=llm_config.retry_timeout_max_delay,
+                backoff_factor=llm_config.retry_timeout_backoff_factor,
+            )
+            llm_client = RetryLLMClient(base_client, retry_config)
+        else:
+            llm_client = base_client
 
     system_template = Path("prompts/chat/system.md").read_text(encoding="utf-8")
     user_template = Path("prompts/chat/user.md").read_text(encoding="utf-8")
@@ -176,11 +259,33 @@ def chat(
     document_index = _format_document_index(all_docs)
     system_message = _build_system_message(system_template, patient, now_date, document_index)
 
+    # Session management
+    session_id = session
+    history = None
+
+    if session_id:
+        # Resume existing session
+        session_rec = asyncio.run(internal_store.get_session(session_id))
+        if not session_rec:
+            print(f"Session {session_id} not found.")
+            sys.exit(1)
+        print(f"Resuming session: [{session_rec.session_id}] {session_rec.title}")
+        history = asyncio.run(internal_store.load_messages(session_id))
+    else:
+        # List sessions or create new
+        session_id = asyncio.run(_list_sessions(internal_store))
+        if session_id:
+            print(f"Resuming session: [{session_id}]...")
+            history = asyncio.run(internal_store.load_messages(session_id))
+        else:
+            print("Starting new session.")
+
     agentic_runner = AgenticLoopRunner(
         llm_client=llm_client,
         tool_executor=tool_executor,
         system_message=system_message,
         loop_config=chat_config,
+        history=history,
     )
     retriever = BaselineRetriever(
         retrieval_runner=retrieval_runner,
@@ -189,7 +294,63 @@ def chat(
         chat_config=chat_config,
     )
 
-    asyncio.run(_chat_loop(agentic_runner, retriever, user_template))
+    # If new session, create it
+    if not session_id:
+        # Peek at first user input to get title
+        print("Medical consultation started. Type your complaint and press Enter.")
+        print("Type 'quit' or press Ctrl+D to exit.\n")
+        try:
+            first_input = input("> ").strip()
+        except EOFError:
+            print("\nSession ended.")
+            return
+
+        if not first_input or first_input.lower() in _QUIT_COMMANDS:
+            print("Session ended.")
+            return
+
+        session_id = asyncio.run(_create_session(internal_store, first_input))
+
+        # Now run the loop with the first message already provided
+        bundle = asyncio.run(retriever.run(first_input))
+        user_message = _build_user_message(user_template, first_input, bundle.top_chunks, bundle.kb_excerpts)
+        response = asyncio.run(agentic_runner.run(user_message))
+        print(f"\n{response}\n")
+
+        # Save after first turn
+        unsaved = agentic_runner.unsaved_messages
+        if unsaved:
+            asyncio.run(internal_store.save_messages(session_id, agentic_runner.history))
+            agentic_runner.mark_saved()
+            session_rec = asyncio.run(internal_store.get_session(session_id))
+            if session_rec:
+                session_rec.updated_at = datetime.now(UTC).isoformat()
+                asyncio.run(internal_store.upsert_session(session_rec))
+
+        # Continue with remaining turns
+        asyncio.run(
+            _chat_loop(
+                agentic_runner,
+                retriever,
+                user_template,
+                internal_store,
+                session_id,
+                do_first_turn_retrieval=False,  # History already started in first_input
+            )
+        )
+    else:
+        # Resume session: go straight to loop without first-turn retrieval
+        # (history already loaded, so don't perform baseline retrieval)
+        asyncio.run(
+            _chat_loop(
+                agentic_runner,
+                retriever,
+                user_template,
+                internal_store,
+                session_id,
+                do_first_turn_retrieval=False,
+            )
+        )
 
 
 if __name__ == "__main__":
