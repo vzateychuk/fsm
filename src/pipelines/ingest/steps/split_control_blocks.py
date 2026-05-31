@@ -35,8 +35,8 @@ class SplitControlBlocks:
         ctx.data.desc = self.desc
         content = assert_raw_content(ctx.data, self.id)
 
-        # Extract document date: content marker > YAML metadata
-        extracted_date = extract_document_date(content)
+        # Extract document date: content marker > YAML metadata > filename prefix
+        extracted_date = extract_document_date(content, source_path=ctx.input.source_path)
 
         if extracted_date:
             ctx.data.document_date = extracted_date

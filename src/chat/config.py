@@ -46,11 +46,22 @@ class RecencyConfig:
 
 
 @dataclass
+class MemoryConfig:
+    """Configuration for context compression and windowing."""
+
+    window_turns: int
+    """Number of most recent user turns to include in LLM context."""
+    summarize_after_turns: int
+    """Trigger rolling summary compression every N user turns."""
+
+
+@dataclass
 class ChatConfig:
     """Main chat consultation configuration container.
 
-    Loads agentic loop guardrails, recency bundle settings, and baseline
-    context formatting parameters from config/chat.yaml.
+    Loads agentic loop guardrails, recency bundle settings, baseline
+    context formatting parameters, and memory compression settings
+    from config/chat.yaml.
 
     LLM configuration is loaded separately from config/llm.yaml via LLMConfig.
     Retrieval configuration is loaded separately from config/retrieve.yaml via RetrievalConfig.
@@ -60,6 +71,7 @@ class ChatConfig:
     recency: RecencyConfig
     bundle: BundleConfig
     excerpts: ExcerptsConfig
+    memory: MemoryConfig
 
     @classmethod
     def load(cls, config_path: Path) -> ChatConfig:
@@ -78,4 +90,5 @@ class ChatConfig:
             recency=RecencyConfig(**data["recency"]),
             bundle=BundleConfig(**data["bundle"]),
             excerpts=ExcerptsConfig(**data["excerpts"]),
+            memory=MemoryConfig(**data["memory"]),
         )

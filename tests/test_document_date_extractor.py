@@ -1,4 +1,6 @@
 """Tests for extract_document_date utility - content-based date extraction."""
+from pathlib import Path
+
 from common.utils.parsers import extract_document_date
 
 
@@ -98,8 +100,37 @@ class TestNoDate:
         content = "- **Дата рождения:** 23.02.1971\n"
         assert extract_document_date(content) is None
 
-    def test_filename_date_NOT_used(self) -> None:
-        """Filename is intentionally NOT a source - only content matters."""
-        # Even if filename suggests a date, content is empty -> None
-        content = ""
-        assert extract_document_date(content) is None
+    def test_filename_not_used_without_source_path(self) -> None:
+        """Without source_path argument filename extraction is skipped -> None."""
+        assert extract_document_date("") is None
+
+
+class TestExtractFromFilename:
+    """Priority 3: YYYY-MM-DD prefix in filename stem."""
+
+    def test_underscore_separator(self) -> None:
+        assert extract_document_date("", source_path=Path("2024-10-13_lab-panel.md")) == "2024-10-13"
+
+    def test_dash_separator(self) -> None:
+        assert extract_document_date("", source_path=Path("2024-10-13-lab-panel.md")) == "2024-10-13"
+
+    def test_source_path_as_string(self) -> None:
+        assert extract_document_date("", source_path="2024-10-13_report.md") == "2024-10-13"
+
+    def test_full_path(self) -> None:
+        assert extract_document_date("", source_path=Path("/data/ingest/2024-10-13_lab-panel.md")) == "2024-10-13"
+
+    def test_no_date_prefix_returns_none(self) -> None:
+        assert extract_document_date("", source_path=Path("lab-panel.md")) is None
+
+    def test_source_path_none_returns_none(self) -> None:
+        assert extract_document_date("", source_path=None) is None
+
+    def test_content_takes_priority_over_filename(self) -> None:
+        content = "- **Дата исследования:** 15.03.2024\n"
+        assert extract_document_date(content, source_path=Path("2024-10-13_lab-panel.md")) == "2024-03-15"
+
+    def test_filename_used_when_all_content_dates_excluded(self) -> None:
+        # Дата заказа is blacklisted in content — filename should win
+        content = "- **Дата заказа:** 13.10.2024\n- **Дата рождения:** 23.02.1971\n"
+        assert extract_document_date(content, source_path=Path("2024-10-13_lab-panel.md")) == "2024-10-13"

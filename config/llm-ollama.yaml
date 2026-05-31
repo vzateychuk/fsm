@@ -9,3 +9,11 @@ top_p: 0.9                                  # Top-p (nucleus) sampling parameter
 max_tokens: 8192                              # Maximum number of tokens to generate
 num_ctx: 16384                                # Context window size for model
 timeout: 60.0                             # Request timeout in seconds
+
+
+# Retry configuration for timeout errors (separate from max_retries)
+retry_timeout_errors: true                   # Enable retry for timeout errors
+retry_timeout_max_attempts: 5                # Maximum number of retry attempts
+retry_timeout_initial_delay: 3.0             # Initial delay in seconds (1s, 2s, 4s, ...)
+retry_timeout_max_delay: 60.0                # Cap delay at 30s
+retry_timeout_backoff_factor: 2.0            # Double delay on each retry

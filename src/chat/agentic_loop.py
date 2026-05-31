@@ -3,6 +3,7 @@
 import logging
 
 from src.chat.config import ChatConfig
+from src.chat.context_builder import _find_window_start, build_context_messages
 from src.chat.tool_executor import KBToolExecutor
 from src.llm.llm_client import LLMClient
 from src.llm.models import ChatRequest, ChatResponse, Message, ToolDefinition
@@ -109,13 +110,27 @@ class AgenticLoopRunner:
         system_message: str,
         loop_config: ChatConfig,
             history: list[Message] | None = None,
+            summary: str | None = None,
     ) -> None:
         self._llm = llm_client
         self._tool_executor = tool_executor
         self._system_message = system_message
         self._cfg = loop_config.agentic_loop
+        self._memory_cfg = loop_config.memory
         self._history: list[Message] = list(history) if history else []
         self._save_cursor: int = len(self._history)
+        self._summary: str | None = summary
+        # Compression cursor: points to the index up to which history is already
+        # reflected in summary. For a restored session that has a summary, start
+        # at the current window boundary — summary covers everything before it.
+        # For a new session or a restore without summary, start at 0 so the first
+        # compression cycle captures the full pre-window history.
+        if self._history and summary:
+            self._compressed_cursor: int = _find_window_start(
+                self._history, self._memory_cfg.window_turns
+            )
+        else:
+            self._compressed_cursor = 0
 
     @property
     def history(self) -> list[Message]:
@@ -130,6 +145,29 @@ class AgenticLoopRunner:
     def mark_saved(self) -> None:
         """Move the save checkpoint to the current end of history."""
         self._save_cursor = len(self._history)
+
+    @property
+    def compressed_cursor(self) -> int:
+        """Index up to which history has been compressed into the rolling summary."""
+        return self._compressed_cursor
+
+    def mark_compressed(self, up_to: int) -> None:
+        """Advance the compression cursor after a successful compression cycle.
+
+        Args:
+            up_to: window_start index at the time of compression.
+        """
+        self._compressed_cursor = up_to
+
+    @property
+    def summary(self) -> str | None:
+        """Current rolling summary of prior conversation."""
+        return self._summary
+
+    @summary.setter
+    def summary(self, value: str | None) -> None:
+        """Update the rolling summary."""
+        self._summary = value
 
     async def run(self, user_message: str) -> str:
         """Execute one patient turn: user message → agentic loop → final text.
@@ -216,11 +254,18 @@ class AgenticLoopRunner:
     async def _call_llm(self, *, with_tools: bool) -> ChatResponse:
         """Build a request from system message + history and call the LLM.
 
+        Applies context windowing and rolling summary compression to keep
+        unbounded message history within LLM context limits.
+
         Args:
             with_tools: When True, includes the kb.search_chunks tool definition.
                         When False, sends a tools-free request (e.g. for final call after budget exhaustion).
         """
-        system_msg = Message(role="system", content=self._system_message)
-        messages = [system_msg] + self._history
+        messages = build_context_messages(
+            self._system_message,
+            self._history,
+            self._summary,
+            self._memory_cfg.window_turns,
+        )
         tools = [_KB_SEARCH_TOOL, _KB_GET_DOCUMENT_TOOL] if with_tools else []
         return await self._llm.chat(ChatRequest(messages=messages, tools=tools))

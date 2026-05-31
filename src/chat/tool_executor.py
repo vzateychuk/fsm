@@ -196,8 +196,13 @@ class KBToolExecutor:
                 bucket.append(excerpt)
                 total_chars += len(excerpt)
             else:
-                truncate_at = max(0, remaining - len("[truncated]"))
-                truncated = excerpt[:truncate_at] + "[truncated]"
+                marker = "\n…[truncated]…\n"
+                marker_len = len(marker)
+                if remaining <= marker_len:
+                    truncated = excerpt[:remaining]
+                else:
+                    half = (remaining - marker_len) // 2
+                    truncated = excerpt[:half] + marker + excerpt[len(excerpt) - half:]
                 bucket = top if i == 0 else additional
                 bucket.append(truncated)
                 break

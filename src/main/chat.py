@@ -19,6 +19,8 @@ import aiosqlite
 from src.chat.agentic_loop import AgenticLoopRunner
 from src.chat.baseline_retriever import BaselineRetriever
 from src.chat.config import ChatConfig
+from src.chat.context_builder import _find_window_start
+from src.chat.summarizer import summarize
 from src.chat.tool_executor import KBToolExecutor
 from src.common.logging_config import setup_logging
 from src.common.patient import PatientInfo
@@ -37,6 +39,8 @@ from src.store.sql.sqlite_internal_store import SqliteInternalStore
 app = typer.Typer(add_completion=False)
 
 _QUIT_COMMANDS = {"quit", "exit", "q"}
+
+logger = logging.getLogger(__name__)
 
 
 async def _init_schema(db_path: str | Path) -> None:
@@ -90,12 +94,84 @@ def _build_user_message(template: str, user_request: str, top_chunks: list[str],
     )
 
 
+def _log_context_stats(
+        runner: AgenticLoopRunner, system_message: str, window_turns: int
+) -> None:
+    history = runner.history
+    user_count = sum(1 for m in history if m.role == "user")
+    assistant_count = sum(1 for m in history if m.role == "assistant")
+    tool_count = sum(1 for m in history if m.role == "tool")
+    window_start = _find_window_start(history, window_turns)
+    windowed = history[window_start:]
+    system_chars = len(system_message)
+    summary_chars = len(runner.summary) if runner.summary else 0
+    windowed_chars = sum(len(m.content or "") for m in windowed)
+    total_chars = system_chars + summary_chars + windowed_chars
+    logger.debug(
+        "Context stats: history=%d (user=%d, asst=%d, tool=%d) | "
+        "window=%d msgs | system=~%d chars | summary=%s (~%d chars) | "
+        "windowed=~%d chars | total~%d chars / ~%d tokens (est.) | cursor=%d",
+        len(history), user_count, assistant_count, tool_count,
+        len(windowed), system_chars,
+        "yes" if runner.summary else "no", summary_chars,
+        windowed_chars, total_chars, total_chars // 4,
+        runner.compressed_cursor,
+    )
+
+
+async def _try_compress_session(
+        runner,
+        chat_config: ChatConfig,
+        llm_client,
+        internal_store,
+        session_id: str,
+) -> None:
+    """Check if compression should trigger and update session summary.
+
+    Triggered after each turn: if user_count is a multiple of summarize_after_turns,
+    compress the delta (history[compressed_cursor:window_start]) into a rolling summary.
+    Compression is skipped when the delta is empty — this is expected until total turns
+    exceed window_turns, after which messages start falling out of the window.
+
+    Args:
+        runner: AgenticLoopRunner instance.
+        chat_config: Chat configuration.
+        llm_client: LLM client for summarization.
+        internal_store: Store for persisting session.
+        session_id: Current session ID.
+    """
+    turns_count = sum(1 for m in runner.history if m.role == "user")
+    if turns_count == 0 or turns_count % chat_config.memory.summarize_after_turns != 0:
+        return
+
+    history = runner.history
+    window_start = _find_window_start(history, chat_config.memory.window_turns)
+    messages_to_compress = history[runner.compressed_cursor:window_start]
+    if not messages_to_compress:
+        return
+
+    try:
+        new_summary = await summarize(llm_client, runner.summary, messages_to_compress)
+        session = await internal_store.get_session(session_id)
+        if session:
+            session.summary = new_summary
+            session.updated_at = datetime.now(UTC).isoformat()
+            await internal_store.upsert_session(session)
+        runner.summary = new_summary
+        runner.mark_compressed(window_start)
+    except Exception:
+        logger.warning("Context compression failed, continuing without update", exc_info=True)
+
+
 async def _chat_loop(
     runner: AgenticLoopRunner,
     retriever: BaselineRetriever,
     user_template: str,
         internal_store: SqliteInternalStore,
         session_id: str,
+        llm_client,
+        chat_config: ChatConfig,
+        system_message: str,
         do_first_turn_retrieval: bool = True,
 ) -> None:
     """Run the interactive REPL until EOF or quit command.
@@ -107,7 +183,8 @@ async def _chat_loop(
     issues kb.search_chunks tool calls itself if it needs more context.
 
     After each turn, unsaved messages are persisted to the store and the save
-    cursor is advanced.
+    cursor is advanced. Context compression may trigger if the turn count reaches
+    the summarize_after_turns threshold.
 
     Args:
         do_first_turn_retrieval: If True, perform baseline retrieval on first user input.
@@ -144,6 +221,9 @@ async def _chat_loop(
             await internal_store.save_messages(session_id, runner.history)
             runner.mark_saved()
 
+        # Attempt context compression if threshold reached
+        await _try_compress_session(runner, chat_config, llm_client, internal_store, session_id)
+
         # Update session timestamp
         session = await internal_store.get_session(session_id)
         if session:
@@ -151,6 +231,8 @@ async def _chat_loop(
             await internal_store.upsert_session(session)
 
         print(f"\n{response}\n")
+
+        _log_context_stats(runner, system_message, chat_config.memory.window_turns)
 
 
 async def _list_sessions(internal_store: SqliteInternalStore) -> str | None:
@@ -200,7 +282,7 @@ async def _create_session(internal_store: SqliteInternalStore, first_message: st
 @app.command()
 def chat(
     config_path: Path = typer.Option(Path("config/chat.yaml"), "--config"),  # noqa: B008
-        session: str | None = typer.Option(None, "--session", help="Session ID to resume"),  # noqa: B008
+        session_id: str | None = typer.Option(None, "--session", help="Session ID to resume"),  # noqa: B008
     env: str = typer.Option("prod", "--env", help="prod | test"),  # noqa: B008
     debug: bool = typer.Option(False, "--debug", help="Enable DEBUG-level logging (all loggers, including libraries)."),  # noqa: B008
     pkg_debug: bool = typer.Option(False, "--pkg-debug", help="Enable DEBUG-level logging for project packages only."),  # noqa: B008
@@ -260,7 +342,6 @@ def chat(
     system_message = _build_system_message(system_template, patient, now_date, document_index)
 
     # Session management
-    session_id = session
     history = None
 
     if session_id:
@@ -280,12 +361,27 @@ def chat(
         else:
             print("Starting new session.")
 
+    # Prepare to get session summary if resuming
+    session_rec = None
+    if session_id:
+        session_rec = asyncio.run(internal_store.get_session(session_id))
+
+    # When resuming, show the last assistant response so the user knows where the conversation left off
+    if history:
+        last_assistant = next(
+            (m for m in reversed(history) if m.role == "assistant" and m.content),
+            None,
+        )
+        if last_assistant:
+            print(f"\n[Last response]\n\n{last_assistant.content}\n")
+
     agentic_runner = AgenticLoopRunner(
         llm_client=llm_client,
         tool_executor=tool_executor,
         system_message=system_message,
         loop_config=chat_config,
         history=history,
+        summary=session_rec.summary if session_rec else None,
     )
     retriever = BaselineRetriever(
         retrieval_runner=retrieval_runner,
@@ -327,6 +423,10 @@ def chat(
                 session_rec.updated_at = datetime.now(UTC).isoformat()
                 asyncio.run(internal_store.upsert_session(session_rec))
 
+        # Attempt context compression after first turn
+        asyncio.run(_try_compress_session(agentic_runner, chat_config, llm_client, internal_store, session_id))
+        _log_context_stats(agentic_runner, system_message, chat_config.memory.window_turns)
+
         # Continue with remaining turns
         asyncio.run(
             _chat_loop(
@@ -335,6 +435,9 @@ def chat(
                 user_template,
                 internal_store,
                 session_id,
+                llm_client,
+                chat_config,
+                system_message=system_message,
                 do_first_turn_retrieval=False,  # History already started in first_input
             )
         )
@@ -348,6 +451,9 @@ def chat(
                 user_template,
                 internal_store,
                 session_id,
+                llm_client,
+                chat_config,
+                system_message=system_message,
                 do_first_turn_retrieval=False,
             )
         )

@@ -67,45 +67,55 @@ src/
 
 ## MODULES
 
-| MODULE              | PATH                              | PURPOSE                                           | AI_TASK        |
-|---------------------|-----------------------------------|---------------------------------------------------|----------------|
-| fsm-core            | src/fsm/                          | RunContext, SagaStep, SagaDefinition, SagaRunner   | BUSINESS_LOGIC |
-| llm                 | src/llm/                          | LLMClient protocol + OpenAI/mock implementations  | INFRA          |
-| chat-agentic        | src/chat/                         | M1 agentic loop: AgenticLoopRunner, BaselineRetriever, KBToolExecutor | BUSINESS_LOGIC |
-| common              | src/common/                       | PatientInfo, KBContextBundleBuilder (shared)      | BUSINESS_LOGIC |
-| main-cli            | src/main/                         | CLI entrypoints: ingest, consult, chat            | CLI_AUTOMATION |
-| ingest-pipeline     | src/pipelines/ingest/             | S0–S9 document indexing steps                    | BUSINESS_LOGIC |
-| retrieval-pipeline  | src/pipelines/retrieval/          | RetrievalRunner, BM25 FTS5 queries                 | BUSINESS_LOGIC |
-| consult-pipeline    | src/pipelines/consult/            | M0 one-shot consultation pipeline (C0–C4)          | BUSINESS_LOGIC |
-| store-saga-inmem    | src/store/inmem/                  | in-memory SagaStore (test/dev)                     | INFRA          |
-| store-saga-sql       | src/store/sql/sql_store.py        | SQLite SagaStore (checkpoint progress)             | INFRA          |
-| store-knowledge-sql | src/store/sql/sqlite_knowledge_store.py | SQLite KnowledgeStore (docs/chunks/FTS5)     | INFRA          |
-| store-file          | src/store/file/                   | LocalFileStore for source document files           | INFRA          |
+| MODULE              | PATH                                    | PURPOSE                                                                                            | AI_TASK        |
+|---------------------|-----------------------------------------|----------------------------------------------------------------------------------------------------|----------------|
+| fsm-core            | src/fsm/                                | RunContext, SagaStep, SagaDefinition, SagaRunner                                                   | BUSINESS_LOGIC |
+| llm                 | src/llm/                                | LLMClient protocol + OpenAI/mock implementations                                                   | INFRA          |
+| chat-agentic        | src/chat/                               | M1 agentic loop: AgenticLoopRunner, BaselineRetriever, KBToolExecutor, context_builder, summarizer | BUSINESS_LOGIC |
+| common              | src/common/                             | PatientInfo, KBContextBundleBuilder (shared)                                                       | BUSINESS_LOGIC |
+| main-cli            | src/main/                               | CLI entrypoints: ingest, consult, chat                                                             | CLI_AUTOMATION |
+| ingest-pipeline     | src/pipelines/ingest/                   | S0–S9 document indexing steps                                                                      | BUSINESS_LOGIC |
+| retrieval-pipeline  | src/pipelines/retrieval/                | RetrievalRunner, BM25 FTS5 queries                                                                 | BUSINESS_LOGIC |
+| consult-pipeline    | src/pipelines/consult/                  | M0 one-shot consultation pipeline (C0–C4)                                                          | BUSINESS_LOGIC |
+| store-saga-inmem    | src/store/inmem/                        | in-memory SagaStore (test/dev)                                                                     | INFRA          |
+| store-saga-sql      | src/store/sql/sql_store.py              | SQLite SagaStore (checkpoint progress)                                                             | INFRA          |
+| store-knowledge-sql | src/store/sql/sqlite_knowledge_store.py | SQLite KnowledgeStore (docs/chunks/FTS5)                                                           | INFRA          |
+| store-internal-sql  | src/store/sql/sqlite_internal_store.py  | SqliteInternalStore: sessions + messages persistence                                               | INFRA          |
+| store-file          | src/store/file/                         | LocalFileStore for source document files                                                           | INFRA          |
 
 ---
 
 ## KEY_FILES
 
-| FILE                                          | PURPOSE                                         | RELATED MODULES                    |
-|-----------------------------------------------|-------------------------------------------------|------------------------------------|
-| pyproject.toml                                | deps, scripts, ruff/mypy/pytest config          | all                                |
-| config/chat.yaml                              | M1 agentic loop config (roundtrips, budgets)   | src/chat/                          |
-| config/retrieve.yaml                          | BM25 weights, usage params (query_top_k, etc.)   | src/chat/, src/pipelines/consult/  |
-| config/llm.yaml                               | LLM endpoint + model config                     | src/llm/                           |
-| config/patient.yaml                           | Patient demographics for prompts               | src/chat/, src/pipelines/consult/  |
-| prompts/chat/system.md                        | M1 system prompt template (Patient Info, Index) | src/chat/                          |
-| prompts/chat/user.md                          | M1 user prompt template (Initial KB Excerpts)  | src/chat/                          |
-| src/chat/agentic_loop.py                      | AgenticLoopRunner (tool-call loop orchestrator) | src/chat/                          |
-| src/chat/baseline_retriever.py                | BaselineRetriever (query + recency bundle)      | src/chat/                          |
-| src/chat/tool_executor.py                     | KBToolExecutor (kb.search_chunks, kb.get_document) | src/chat/                       |
-| src/chat/config.py                             | ChatConfig, AgenticLoopConfig, RecencyConfig    | src/chat/                          |
-| src/common/patient.py                        | PatientInfo (shared domain model)               | src/chat/, src/pipelines/consult/ |
-| src/common/bundle_builder.py                  | KBContextBundleBuilder (shared context builder) | src/chat/, src/pipelines/consult/  |
-| src/llm/models.py                             | ToolDefinition, ToolCall, Message, ChatResponse | src/llm/, src/chat/                |
-| src/store/knowledge_store.py                  | KnowledgeStore Protocol                         | all pipelines                      |
-| src/store/sql/schema.sql                      | SQLite DDL (documents, chunks, FTS5, saga)     | store-knowledge-sql, store-saga-sql|
-| src/fsm/core.py                               | RunContext, SagaStep, SagaDefinition            | all pipelines                      |
-| tests/                                        | unit tests (ingest, retrieval, consult, store)   | —                                 |
+| FILE                                   | PURPOSE                                                                     | RELATED MODULES                                         |
+|----------------------------------------|-----------------------------------------------------------------------------|---------------------------------------------------------|
+| pyproject.toml                         | deps, scripts, ruff/mypy/pytest config                                      | all                                                     |
+| config/chat.yaml                       | M1 agentic loop config (roundtrips, budgets, memory window/compression)     | src/chat/                                               |
+| config/retrieve.yaml                   | BM25 weights, usage params (query_top_k, etc.)                              | src/chat/, src/pipelines/consult/                       |
+| config/llm.yaml                        | LLM endpoint + model config                                                 | src/llm/                                                |
+| config/patient.yaml                    | Patient demographics for prompts                                            | src/chat/, src/pipelines/consult/                       |
+| prompts/chat/system.md                 | M1 system prompt template (Patient Info, Index)                             | src/chat/                                               |
+| prompts/chat/user.md                   | M1 user prompt template (Initial KB Excerpts)                               | src/chat/                                               |
+| prompts/chat/summarize.md              | Summarizer prompt (Context Manager, 4-section structured output)            | src/chat/                                               |
+| src/chat/agentic_loop.py               | AgenticLoopRunner (tool-call loop orchestrator)                             | src/chat/                                               |
+| src/chat/baseline_retriever.py         | BaselineRetriever (query + recency bundle)                                  | src/chat/                                               |
+| src/chat/tool_executor.py              | KBToolExecutor (kb.search_chunks, kb.get_document)                          | src/chat/                                               |
+| src/chat/config.py                     | ChatConfig, AgenticLoopConfig, RecencyConfig, MemoryConfig                  | src/chat/                                               |
+| src/chat/context_builder.py            | build_context_messages: windowed history + XML summary injection            | src/chat/                                               |
+| src/chat/summarizer.py                 | summarize(): delta rolling compression via LLM call                         | src/chat/                                               |
+| src/common/patient.py                  | PatientInfo (shared domain model)                                           | src/chat/, src/pipelines/consult/                       |
+| src/common/bundle_builder.py           | KBContextBundleBuilder (shared context builder)                             | src/chat/, src/pipelines/consult/                       |
+| src/llm/models.py                      | ToolDefinition, ToolCall, Message, ChatResponse                             | src/llm/, src/chat/                                     |
+| src/llm/openai_client.py               | OpenAI-compatible client wrapper                                            | src/llm/                                                |
+| src/llm/retry_client.py                | Timeout error retry with exponential backoff                                | src/llm/ (Phase 4)                                      |
+| src/store/knowledge_store.py           | KnowledgeStore Protocol                                                     | all pipelines                                           |
+| src/store/models.py                    | SessionRecord dataclass (id, title, status, summary)                        | store-internal-sql                                      |
+| src/store/internal_store.py            | InternalStore Protocol (upsert/get/list/delete session, save/load messages) | store-internal-sql                                      |
+| src/store/sql/sqlite_internal_store.py | SqliteInternalStore implementation                                          | store-internal-sql                                      |
+| src/store/sql/schema.sql               | SQLite DDL (documents, chunks, FTS5, saga_progress, sessions, messages)     | store-knowledge-sql, store-saga-sql, store-internal-sql |
+| src/fsm/core.py                        | RunContext, SagaStep, SagaDefinition                                        | all pipelines                                           |
+| src/main/chat.py                       | M1 REPL: session mgmt, post-turn persistence, delta compression trigger     | src/chat/, store-internal-sql                           |
+| tests/                                 | unit tests (ingest, retrieval, consult, store)                              | —                                                       |
 
 ---
 
@@ -124,10 +134,19 @@ src/
 
 ## ENV_CONFIG
 
-| KEY      | REQUIRED | PURPOSE                                          |
-|----------|----------|--------------------------------------------------|
-| DB_PATH  | no       | SQLite KB path (default: .data/db/ingest.db)     |
-| LOG_FILE | no       | log file path (default: stdout)                  |
+| KEY            | REQUIRED | PURPOSE                                      |
+|----------------|----------|----------------------------------------------|
+| NVIDIA_API_KEY | yes      | Auth token for NVIDIA NIM LLM endpoint       |
+| DB_PATH        | no       | SQLite KB path (default: .data/db/ingest.db) |
+| LOG_FILE       | no       | log file path (default: stdout)              |
+
+---
+
+## API_CONSUMED
+
+| SERVICE    | BASE_URL_CONFIG_KEY | OPERATIONS                      | MODULE                |
+|------------|---------------------|---------------------------------|-----------------------|
+| NVIDIA NIM | config/llm.yaml     | chat.completions (tool-calling) | src/llm/openai_client |
 
 ---
 
@@ -160,32 +179,37 @@ src/
 
 ### Agentic Chat Loop (M1)
 
-| STEP | FROM                 | TO                  | PURPOSE                                  |
-|------|----------------------|---------------------|------------------------------------------|
-| 0    | chat.py (1st turn)   | BaselineRetriever   | query bundle + recency bundle → KB Excerpts |
-| 1    | AgenticLoopRunner    | LLM API             | system + history + tools definitions     |
-| 2    | LLM API              | KBToolExecutor      | kb.search_chunks, kb.get_document        |
-| 3    | KBToolExecutor       | RetrievalRunner/Store | search or full document fetch          |
-| 4    | AgenticLoopRunner    | Chat REPL           | final assistant text per turn            |
+| STEP | FROM                | TO                               | PURPOSE                                                 |
+|------|---------------------|----------------------------------|---------------------------------------------------------|
+| 0    | chat.py (1st turn)  | BaselineRetriever                | query bundle + recency bundle → KB Excerpts             |
+| 1    | AgenticLoopRunner   | LLM API                          | system + history + tools definitions                    |
+| 2    | LLM API             | KBToolExecutor                   | kb.search_chunks, kb.get_document                       |
+| 3    | KBToolExecutor      | RetrievalRunner/Store            | search or full document fetch                           |
+| 4    | AgenticLoopRunner   | Chat REPL                        | final assistant text per turn                           |
+| 5    | chat.py (post-turn) | SqliteInternalStore              | persist unsaved messages; advance save cursor           |
+| 6    | chat.py (post-turn) | summarizer + SqliteInternalStore | delta compression if turns % N == 0 and delta non-empty |
 
 ---
 
 ## DATA_ENTITIES
 
-| ENTITY            | PURPOSE                                              |
-|-------------------|------------------------------------------------------|
-| documents         | DB table: ingested docs with hash, category, date    |
-| chunks            | DB table: chunked sections with kind/tags/path       |
-| chunks_fts        | FTS5 virtual table: BM25 full-text search index      |
-| saga_progress     | DB table: checkpoint cursor + serialized pipeline state |
-| IngestData        | Pydantic pipeline state (S0–S9 field contracts)      |
-| RetrievalData     | Pydantic pipeline state (R0–R7 field contracts)       |
-| ConsultData       | Pydantic pipeline state (C0–C4 field contracts)     |
-| ChunkSearchResult | BM25-ranked chunk retrieval result                   |
-| DocSummary        | document metadata (id, date, category, sections)     |
-| PatientInfo       | patient demographics (shared between M0 and M1)    |
-| KBContextBundle   | formatted KB context for LLM (top_chunks + kb_excerpts) |
-| SagaData          | base Pydantic class for all pipeline state models    |
+| ENTITY            | PURPOSE                                                                        |
+|-------------------|--------------------------------------------------------------------------------|
+| documents         | DB table: ingested docs with hash, category, date                              |
+| chunks            | DB table: chunked sections with kind/tags/path                                 |
+| chunks_fts        | FTS5 virtual table: BM25 full-text search index                                |
+| saga_progress     | DB table: checkpoint cursor + serialized pipeline state                        |
+| sessions          | DB table: session records (id, title, status, rolling summary)                 |
+| messages          | DB table: full persisted conversation history (role, content, tool_calls_json) |
+| SessionRecord     | Python dataclass: session metadata (id, title, status, summary, timestamps)    |
+| IngestData        | Pydantic pipeline state (S0–S9 field contracts)                                |
+| RetrievalData     | Pydantic pipeline state (R0–R7 field contracts)                                |
+| ConsultData       | Pydantic pipeline state (C0–C4 field contracts)                                |
+| ChunkSearchResult | BM25-ranked chunk retrieval result                                             |
+| DocSummary        | document metadata (id, date, category, sections)                               |
+| PatientInfo       | patient demographics (shared between M0 and M1)                                |
+| KBContextBundle   | formatted KB context for LLM (top_chunks + kb_excerpts)                        |
+| SagaData          | base Pydantic class for all pipeline state models                              |
 
 ---
 
@@ -219,4 +243,15 @@ src/
 
 ---
 
-<!-- Updated: 2026-05-27 (full M1 implementation scan: AgenticLoopRunner, BaselineRetriever, KBToolExecutor, shared PatientInfo + KBContextBundleBuilder, prompts/chat/) -->
+## PHASE_STATUS
+
+| PHASE | STATUS   | NOTES                                                                       |
+|-------|----------|-----------------------------------------------------------------------------|
+| 0-2   | COMPLETE | Ingest pipeline, checkpointing, sessions, persistent messages               |
+| 3     | COMPLETE | Context compression: windowed context, delta rolling summary, XML isolation |
+| 4     | COMPLETE | LLM retry with exponential backoff for timeout errors                       |
+| 9     | PARTIAL  | Tests for agentic loop scenarios pending                                    |
+
+---
+
+<!-- Updated: 2026-05-31 (Phase 3 COMPLETE: context_builder, summarizer, MemoryConfig, delta compression, XML summary isolation, Head-and-Tail truncation; Phase 2 store entities added; Agentic Chat Loop flow extended with session persistence + compression steps) -->

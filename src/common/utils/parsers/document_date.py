@@ -1,4 +1,4 @@
-"""Extract document date from markdown content markers or YAML metadata.
+"""Extract document date from markdown content markers, YAML metadata, or filename.
 
 Priority order (first non-None wins):
 1. Content markers: lines like '**Дата:** 2023-02-24' or '**Дата исследования:** 05.06.2025'
@@ -6,6 +6,8 @@ Priority order (first non-None wins):
    Excludes: 'Дата рождения' (birth date), 'Дата валидации' (validation timestamp),
    'Дата заказа' (test order date), 'Дата отправки' (send date), 'Дата печати' (print date).
 2. YAML metadata block: --- date: 2023-02-24 ---
+3. Filename prefix: YYYY-MM-DD_<name>.md (e.g. 2024-10-13_lab-panel.md)
+   Used as fallback when content and YAML yield no date. Requires source_path argument.
 
 Supported content marker formats:
   - Markup: **bold** or *italic*
@@ -20,15 +22,13 @@ Example valid lines:
   - **Дата и время:** 2024-03-15 10:30
   - **Дата выписки:** 15.03.2024 14:25
 
-Note: filename-based extraction is intentionally NOT supported, since filenames
-may contain arbitrary dates unrelated to the document's actual date.
-
 Output is always normalized to ISO YYYY-MM-DD or None.
 """
 from __future__ import annotations
 
 import re
 from datetime import date
+from pathlib import Path
 
 import yaml
 
@@ -52,6 +52,9 @@ _EXCLUDED_SUFFIXES = ("рождения", "валидации", "заказа", 
 
 # Lines from top of file to scan for content markers (header section).
 _CONTENT_SCAN_LIMIT = 30
+
+# Filename date prefix: YYYY-MM-DD_ or YYYY-MM-DD- at the start of the stem.
+_FILENAME_DATE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})[_\-]")
 
 
 def _normalize_date(date_str: str) -> str:
@@ -98,6 +101,19 @@ def _extract_from_content(content: str) -> str | None:
     return None
 
 
+def _extract_from_filename(source_path: str | Path | None) -> str | None:
+    """Extract date from filename prefix pattern YYYY-MM-DD_<name>.
+
+    Returns ISO YYYY-MM-DD if the filename stem starts with a valid date prefix,
+    None otherwise.
+    """
+    if source_path is None:
+        return None
+    stem = Path(source_path).stem
+    match = _FILENAME_DATE_RE.match(stem)
+    return match.group(1) if match else None
+
+
 def _extract_from_yaml_metadata(content: str) -> str | None:
     """Extract date from YAML metadata block (--- ... ---) at top of file.
 
@@ -131,12 +147,19 @@ def _extract_from_yaml_metadata(content: str) -> str | None:
     return _normalize_date(str(date_val))
 
 
-def extract_document_date(content: str) -> str | None:
-    """Extract document date with priority: content marker > YAML metadata.
+def extract_document_date(
+        content: str, source_path: str | Path | None = None
+) -> str | None:
+    """Extract document date with priority: content marker > YAML metadata > filename.
 
     Returns ISO format YYYY-MM-DD or None if no date could be extracted.
 
     Args:
         content: raw markdown content (used for header markers and YAML metadata)
+        source_path: path to the source file; used to extract date from filename prefix
     """
-    return _extract_from_content(content) or _extract_from_yaml_metadata(content)
+    return (
+            _extract_from_content(content)
+            or _extract_from_yaml_metadata(content)
+            or _extract_from_filename(source_path)
+    )
