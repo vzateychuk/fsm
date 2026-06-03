@@ -1,6 +1,7 @@
 """IngestService — synchronous document ingestion."""
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import tempfile
@@ -44,6 +45,13 @@ class IngestService:
         """
         # Lazy import to keep services domain independent from inner pipeline modules
         from src.pipelines.ingest.models import IngestData, IngestInput
+
+        # Deduplication: return existing document if content hash matches.
+        sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
+        existing = await self._knowledge_store.find_document_by_sha256(sha256)
+        if existing is not None:
+            logger.info("Duplicate upload detected, returning existing document_id=%s", existing.document_id)
+            return existing
 
         tmp_path: str | None = None
         try:

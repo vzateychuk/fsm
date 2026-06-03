@@ -136,6 +136,10 @@ class KnowledgeStore(Protocol):
         """Return metadata for a specific document by ID, or None if not found."""
         ...
 
+    async def find_document_by_sha256(self, sha256: str) -> DocumentMetadata | None:
+        """Return metadata for a document with the given content hash, or None if not found."""
+        ...
+
     async def list_docs(
         self,
         *,

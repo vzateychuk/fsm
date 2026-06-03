@@ -258,6 +258,26 @@ class SqliteKnowledgeStore:
 
         return results
 
+    async def find_document_by_sha256(self, sha256: str) -> DocumentMetadata | None:
+        """Return metadata for a document with the given content hash, or None if not found."""
+        async with aiosqlite.connect(self.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
+            async with conn.execute(
+                "SELECT id, source_path, category, document_date, indexed_at"
+                " FROM documents WHERE source_sha256 = ? LIMIT 1",
+                (sha256,),
+            ) as cursor:
+                row = await cursor.fetchone()
+        if row is None:
+            return None
+        return DocumentMetadata(
+            document_id=row["id"],
+            source_path=row["source_path"],
+            category=row["category"],
+            document_date=row["document_date"],
+            indexed_at=row["indexed_at"],
+        )
+
     async def get_document_metadata(self, document_id: str) -> DocumentMetadata | None:
         """Return metadata for a specific document by ID, or None if not found."""
         async with aiosqlite.connect(self.db_path) as conn:
