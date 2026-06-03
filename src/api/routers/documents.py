@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from src.api.deps import get_ingest_service
 from src.api.schemas import DocumentDTO
-from src.services.errors import IngestFailedError
 from src.services.ingest import IngestService
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
@@ -29,13 +28,11 @@ async def upload_document(
     try:
         content = raw.decode("utf-8")
     except UnicodeDecodeError:
+        # Not an AppError — this is an input validation error at the HTTP boundary.
         raise HTTPException(
             status_code=422, detail="File must be UTF-8 encoded Markdown text"
         )
-    try:
-        doc = await service.ingest_document(content)
-    except IngestFailedError as exc:
-        raise HTTPException(status_code=422, detail=exc.message)
+    doc = await service.ingest_document(content)
     return _to_dto(doc)
 
 

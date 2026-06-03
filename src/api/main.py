@@ -20,7 +20,9 @@ def main() -> None:
 
     from src.common.logging_config import setup_logging
 
-    setup_logging()
+    setup_logging(
+        log_format="%(asctime)s [%(request_id)s] %(name)s:%(lineno)d %(levelname)s - %(message)s"
+    )
 
     import uvicorn
 

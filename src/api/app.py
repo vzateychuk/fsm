@@ -7,14 +7,15 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.api.factory import create_app_context
+from src.api.middleware import RequestIDFilter, RequestIDMiddleware
 from src.api.routers import chat, documents, health, profile, sessions
 from src.services.errors import AppError
 
@@ -36,16 +37,25 @@ def create_app() -> FastAPI:
         lifespan=_lifespan,
     )
 
-    cors_origins_raw = os.getenv("CORS_ORIGINS", "*")
+    cors_origins_raw = os.getenv("CORS_ORIGINS", "http://localhost:5173")
     cors_origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
+    # allow_credentials=True is incompatible with allow_origins=["*"] per CORS spec —
+    # browsers reject preflight with credentials + wildcard origin.
+    # Use allow_origins=["*"] only when credentials are not needed (e.g. public read-only).
+    allow_credentials = cors_origins != ["*"]
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=cors_origins,
-        allow_credentials=True,
+        allow_credentials=allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.add_middleware(RequestIDMiddleware)
+
+    # Attach request-ID filter to root logger so every log record emitted
+    # during a request automatically carries the correlation ID.
+    logging.getLogger().addFilter(RequestIDFilter())
 
     @app.exception_handler(AppError)
     async def _app_error_handler(request: Request, exc: AppError) -> JSONResponse:

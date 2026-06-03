@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends
 
 from src.api.deps import get_sessions_service
 from src.api.schemas import CreateSessionRequest, PatchSessionRequest, SessionDTO
-from src.services.errors import NotFoundError
 from src.services.sessions import SessionsService
 
 router = APIRouter(prefix="/api/v1/sessions", tags=["sessions"])
@@ -44,11 +43,7 @@ async def get_session(
     session_id: str,
     service: SessionsService = Depends(get_sessions_service),
 ) -> SessionDTO:
-    try:
-        session = await service.get_session(session_id)
-    except NotFoundError:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail=f"Session {session_id!r} not found")
+    session = await service.get_session(session_id)
     return _to_dto(session)
 
 
@@ -58,13 +53,9 @@ async def update_session(
     body: PatchSessionRequest,
     service: SessionsService = Depends(get_sessions_service),
 ) -> SessionDTO:
-    try:
-        session = await service.update_session(
-            session_id, title=body.title, status=body.status
-        )
-    except NotFoundError:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail=f"Session {session_id!r} not found")
+    session = await service.update_session(
+        session_id, title=body.title, status=body.status
+    )
     return _to_dto(session)
 
 
@@ -73,8 +64,4 @@ async def delete_session(
     session_id: str,
     service: SessionsService = Depends(get_sessions_service),
 ) -> None:
-    try:
-        await service.delete_session(session_id)
-    except NotFoundError:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail=f"Session {session_id!r} not found")
+    await service.delete_session(session_id)
