@@ -8,7 +8,7 @@ from uuid import uuid4
 import aiosqlite
 
 from src.llm.models import Message, ToolCall
-from src.store.models import SessionRecord
+from src.store.models import MessageRecord, SessionRecord
 
 
 @dataclass(slots=True)
@@ -173,3 +173,62 @@ class SqliteInternalStore:
                 messages.append(msg)
 
             return messages
+
+    async def list_session_messages(
+        self,
+        session_id: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[MessageRecord]:
+        """Return visible messages (user + final assistant) with DB metadata."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                """
+                SELECT message_id, session_id, role, content, created_at
+                FROM messages
+                WHERE session_id = ?
+                  AND role IN ('user', 'assistant')
+                  AND tool_calls_json IS NULL
+                ORDER BY seq ASC
+                LIMIT ? OFFSET ?
+                """,
+                (session_id, limit, offset),
+            )
+            rows = await cursor.fetchall()
+            return [
+                MessageRecord(
+                    message_id=row[0],
+                    session_id=row[1],
+                    role=row[2],
+                    content=row[3],
+                    created_at=row[4],
+                )
+                for row in rows
+            ]
+
+    async def get_last_assistant_message(self, session_id: str) -> MessageRecord | None:
+        """Return the last final assistant message in a session."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                """
+                SELECT message_id, session_id, role, content, created_at
+                FROM messages
+                WHERE session_id = ?
+                  AND role = 'assistant'
+                  AND tool_calls_json IS NULL
+                ORDER BY seq DESC
+                LIMIT 1
+                """,
+                (session_id,),
+            )
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+            return MessageRecord(
+                message_id=row[0],
+                session_id=row[1],
+                role=row[2],
+                content=row[3],
+                created_at=row[4],
+            )

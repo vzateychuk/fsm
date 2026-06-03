@@ -106,6 +106,65 @@ src/
   10. PersistChunks — сохранение блоков в БД
   11. UpdateFTS — обновление индекса FTS5
 
+## REST API (Backend)
+
+### Запуск
+
+```bash
+uv sync
+uv run serve
+```
+
+Сервер стартует на `http://localhost:8000`.
+
+- Swagger UI: `http://localhost:8000/docs`
+- API base URL: `http://localhost:8000/api/v1`
+
+Переменные окружения (опционально): `HOST`, `PORT`, `DB_PATH`, `CORS_ORIGINS`.
+
+### Основные операции
+
+**Загрузить документ (Markdown):**
+```bash
+curl -X POST http://localhost:8000/api/v1/documents -F "file=@document.md"
+```
+
+**Создать сессию:**
+```bash
+curl -X POST http://localhost:8000/api/v1/sessions \
+  -H "Content-Type: application/json" -d '{"title": "Новая сессия"}'
+# -> {"session_id": "...", ...}
+```
+
+**Отправить сообщение:**
+```bash
+curl -X POST http://localhost:8000/api/v1/sessions/{session_id}/messages \
+  -H "Content-Type: application/json" -d '{"content": "Ваш вопрос"}'
+```
+
+**Просмотреть историю сообщений:**
+```bash
+curl http://localhost:8000/api/v1/sessions/{session_id}/messages
+```
+
+### Все эндпоинты
+
+| Метод | Путь | Описание |
+|-------|------|----------|
+| GET | /health | Проверка состояния |
+| GET | /api/v1/profile | Профиль пациента |
+| GET | /api/v1/sessions | Список сессий |
+| POST | /api/v1/sessions | Создать сессию |
+| GET | /api/v1/sessions/{id} | Получить сессию |
+| PATCH | /api/v1/sessions/{id} | Переименовать / архивировать |
+| DELETE | /api/v1/sessions/{id} | Удалить сессию |
+| POST | /api/v1/sessions/{id}/messages | Отправить сообщение |
+| GET | /api/v1/sessions/{id}/messages | История сообщений |
+| POST | /api/v1/documents | Загрузить документ |
+| GET | /api/v1/documents | Список документов |
+
+---
+
 ## Использование
 
 ### Запуск pipeline

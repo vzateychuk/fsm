@@ -1,0 +1,82 @@
+"""FastAPI application factory.
+
+Creates the app with lifespan, CORS, and global exception handlers.
+The app instance is module-level so uvicorn can reference 'src.api.app:app'.
+"""
+from __future__ import annotations
+
+import logging
+import os
+from contextlib import asynccontextmanager
+from typing import AsyncIterator
+
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+
+from src.api.factory import create_app_context
+from src.api.routers import chat, documents, health, profile, sessions
+from src.services.errors import AppError
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    app.state.ctx = await create_app_context()
+    logger.info("Application context initialized")
+    yield
+    logger.info("Application shutting down")
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title="Med AI Adviser API",
+        version="1.0.0",
+        lifespan=_lifespan,
+    )
+
+    cors_origins_raw = os.getenv("CORS_ORIGINS", "*")
+    cors_origins = [o.strip() for o in cors_origins_raw.split(",") if o.strip()]
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.exception_handler(AppError)
+    async def _app_error_handler(request: Request, exc: AppError) -> JSONResponse:
+        return JSONResponse(
+            status_code=exc.http_status,
+            content={
+                "code": exc.code,
+                "message": exc.message,
+                "details": exc.details,
+            },
+        )
+
+    @app.exception_handler(Exception)
+    async def _unhandled_error_handler(request: Request, exc: Exception) -> JSONResponse:
+        logger.error("Unhandled exception: %s", exc, exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "code": "internal_error",
+                "message": "An unexpected error occurred",
+                "details": None,
+            },
+        )
+
+    app.include_router(health.router)
+    app.include_router(sessions.router)
+    app.include_router(chat.router)
+    app.include_router(documents.router)
+    app.include_router(profile.router)
+
+    return app
+
+
+app = create_app()

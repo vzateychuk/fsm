@@ -1,7 +1,7 @@
 from typing import Protocol
 
 from src.llm.models import Message
-from src.store.models import SessionRecord
+from src.store.models import MessageRecord, SessionRecord
 
 
 class InternalStore(Protocol):
@@ -71,5 +71,38 @@ class InternalStore(Protocol):
 
         Returns:
             List of Message objects, ordered by seq ascending.
+        """
+        ...
+
+    async def list_session_messages(
+        self,
+        session_id: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[MessageRecord]:
+        """Return visible messages (user + final assistant) with DB metadata.
+
+        Filters out tool messages and intermediate assistant messages that have
+        tool_calls. Returns only the messages suitable for display in the UI.
+
+        Args:
+            session_id: Session identifier.
+            limit: Maximum number of messages to return.
+            offset: Number of messages to skip (for pagination).
+
+        Returns:
+            List of MessageRecord objects ordered by seq ascending.
+        """
+        ...
+
+    async def get_last_assistant_message(self, session_id: str) -> MessageRecord | None:
+        """Return the last final assistant message in a session.
+
+        Args:
+            session_id: Session identifier.
+
+        Returns:
+            The most recent assistant message (no tool_calls), or None if not found.
         """
         ...

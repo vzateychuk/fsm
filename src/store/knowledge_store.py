@@ -132,6 +132,10 @@ class KnowledgeStore(Protocol):
         """
         ...
 
+    async def get_document_metadata(self, document_id: str) -> DocumentMetadata | None:
+        """Return metadata for a specific document by ID, or None if not found."""
+        ...
+
     async def list_docs(
         self,
         *,

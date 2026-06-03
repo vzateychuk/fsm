@@ -4,6 +4,22 @@ from dataclasses import dataclass
 
 
 @dataclass
+class MessageRecord:
+    """A single visible message (user or final assistant) with DB metadata."""
+
+    message_id: str
+    """Unique message identifier."""
+    session_id: str
+    """Session this message belongs to."""
+    role: str
+    """Message role: 'user' or 'assistant'."""
+    content: str
+    """Message text content."""
+    created_at: str
+    """ISO 8601 timestamp when the message was persisted."""
+
+
+@dataclass
 class SessionRecord:
     """Persistent record of a chat consultation session."""
 
