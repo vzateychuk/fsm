@@ -1,10 +1,14 @@
 import logging
 import os
 import sys
+from contextvars import ContextVar
 from pathlib import Path
 
 # Пакеты проекта, которые получают DEBUG при --pkg-debug.
 _PROJECT_PACKAGES = ("src", "pipelines", "store", "common")
+
+# Контекстная переменная для request_id — позволяет передавать ID через async стек без threading.
+_request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 
 
 def setup_logging(
@@ -74,6 +78,41 @@ def setup_logging(
             logging.getLogger(pkg).setLevel(logging.DEBUG)
 
 
+def get_request_id() -> str:
+    """Return the current request ID, or '-' outside an HTTP request context."""
+    return _request_id_var.get()
+
+
+def set_request_id(request_id: str) -> None:
+    """Set the current request ID for logging (for use in middleware)."""
+    _request_id_var.set(request_id)
+
+
 def get_logger(name: str) -> logging.Logger:
     """Получить logger по имени"""
     return logging.getLogger(name)
+
+
+# Запоминаем оригинальную фабрику LogRecord и подменяем её на расширенную.
+_original_record_factory = logging.getLogRecordFactory()
+
+
+def _log_record_factory(
+    name: str,
+    level: int,
+    fn,
+    lno,
+    msg,
+    args,
+    exc_info,
+    func=None,
+    sinfo=None,
+    **kwargs,
+) -> logging.LogRecord:
+    """Extended LogRecord factory that injects request_id from ContextVar into every log record."""
+    record = _original_record_factory(name, level, fn, lno, msg, args, exc_info, func=func, sinfo=sinfo, **kwargs)
+    record.request_id = _request_id_var.get()
+    return record
+
+
+logging.setLogRecordFactory(_log_record_factory)

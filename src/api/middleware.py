@@ -2,19 +2,20 @@
 from __future__ import annotations
 
 import logging
-from contextvars import ContextVar, Token
 from uuid import uuid4
 
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import Response
 
-_request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
+# Импортируем ContextVar из logging_config, чтобы использовать единый источник.
+from src.common.logging_config import (
+    _request_id_var,
+    get_request_id,
+)
 
-
-def get_request_id() -> str:
-    """Return the current request ID, or '-' outside an HTTP request context."""
-    return _request_id_var.get()
+# Повторно экспортируем для обратной совместимости.
+__all__ = ["RequestIDMiddleware", "RequestIDFilter", "get_request_id"]
 
 
 class RequestIDFilter(logging.Filter):
@@ -23,6 +24,10 @@ class RequestIDFilter(logging.Filter):
     Attach to the root logger so all loggers in the process automatically
     include the request ID in their output when a format string contains
     %(request_id)s.
+
+    Note: with the LogRecord factory override in logging_config.py, this filter
+    is no longer strictly required — the factory adds request_id to every record.
+    Kept for backwards compatibility and explicit filter semantics.
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -43,7 +48,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: RequestResponseEndpoint
     ) -> Response:
         request_id = request.headers.get("X-Request-ID") or uuid4().hex
-        token: Token[str] = _request_id_var.set(request_id)
+        token = _request_id_var.set(request_id)
         try:
             response = await call_next(request)
         finally:
