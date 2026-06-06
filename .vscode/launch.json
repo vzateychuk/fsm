@@ -51,5 +51,21 @@
       "justMyCode": true,
       "cwd": "${workspaceFolder}",
     },
+    {
+      "name": "Run API",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "src.api.main",
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "LOG_FILE": "${workspaceFolder}/logs/api.log",
+        "DB_PATH": "${workspaceFolder}/.data/db/ingest.db",
+        "FILESTORE_DIR": "${workspaceFolder}/.data/filestore",
+        "HOST": "127.0.0.1",
+        "PORT": "8000"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
   ]
 }

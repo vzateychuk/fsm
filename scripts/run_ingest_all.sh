@@ -1,48 +1,36 @@
-#!/usr/bin/env bash
-# Run ingest pipeline for every .md file in the specified directory
+#!/bin/bash
 
-set -euo pipefail
-
+INGEST_DIR=".data/ingest"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$SCRIPT_DIR/.."
 
-INGEST_CMD="uv run $PROJECT_ROOT/src/main/ingest.py"
+# Проверяем, существует ли директория с файлами
+if [ ! -d "$INGEST_DIR" ]; then
+  echo "❌ Error: Directory '$INGEST_DIR' not found."
+  exit 1
+fi
 
-# Allow overriding the directory via env INGEST_INPUT_DIR or --dir argument
-INPUT_DIR=".data/ingest"
-while [[ $# -gt 0 ]]; do
-    case "$1" in
-        --dir|-d)
-            INPUT_DIR="$2"; shift 2;;
-        *)
-            break;;
-    esac
-done
+# Находим все .md файлы и обрабатываем их по одному
+find "$INGEST_DIR" -name "*.md" | while read -r file; do
+  echo "=> Ingesting $file"
 
-INPUT_DIR="${INGEST_INPUT_DIR:-$INPUT_DIR}"
-INPUT_DIR="$(realpath "$INPUT_DIR")"
+  # Конвертируем Unix-путь в Windows-путь для Python
+  PYTHON_SCRIPT=$(cygpath -w "$SCRIPT_DIR/../src/main/ingest.py")
 
-if [[ ! -d "$INPUT_DIR" ]]; then
-    echo "Error: directory $INPUT_DIR does not exist" >&2
+  # Проверяем, существует ли скрипт ingest.py
+  if [ ! -f "$PYTHON_SCRIPT" ]; then
+    echo "❌ Error: Python script not found at: $PYTHON_SCRIPT"
+    echo "   Make sure src/main/ingest.py exists in your project."
     exit 1
-fi
+  fi
 
-shopt -s nullglob
-md_files=("$INPUT_DIR"/*.md)
+  # Запускаем скрипт с путём к файлу
+  python "$PYTHON_SCRIPT" "$file"
 
-if [[ ${#md_files[@]} -eq 0 ]]; then
-    echo "No .md files found in $INPUT_DIR, nothing to do." >&2
-    exit 0
-fi
-
-echo "Found ${#md_files[@]} .md file(s) in $INPUT_DIR, running ingest..."
-
-for file in "${md_files[@]}"; do
-    echo "=> Ingesting $file"
-    $INGEST_CMD "$file" --config "$PROJECT_ROOT/config/ingest.yaml" \
-                 --db "$PROJECT_ROOT/.data/db/ingest.db" \
-                 --filestore "$PROJECT_ROOT/.data/filestore"
-    echo "=> Finished $file"
+  # Проверяем код возврата
+  if [ $? -ne 0 ]; then
+    echo "❌ Error: Ingest failed for $file"
+    exit 1
+  fi
 done
 
-echo "All files ingested successfully."
+echo "✅ All files ingested successfully."

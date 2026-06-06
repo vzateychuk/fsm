@@ -17,19 +17,19 @@ dependencies = [
   "python-multipart>=0.0.9",
 ]
 
-[project.optional-dependencies]
+[project.scripts]
+advisor = "src.main.consult:app"
+chat = "src.main.chat:app"
+serve = "src.api.main:main"
+
+[dependency-groups]
 dev = [
-  "pytest>=8,<9",
+  "pytest>=8.4.2,<9",
   "pytest-asyncio>=0.24,<0.26",
   "ruff>=0.6,<1.0",
   "mypy>=1.10,<2",
   "types-PyYAML>=6.0",
 ]
-
-[project.scripts]
-advisor = "src.main.consult:app"
-chat = "src.main.chat:app"
-serve = "src.api.main:main"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -38,28 +38,27 @@ pythonpath = [".", "src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 ignore = ["E501"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 warn_return_any = true
 warn_unused_ignores = true
 disallow_untyped_defs = true
 no_implicit_optional = true
 strict = true
 
-[tool.setuptools.packages.find]
-where = ["."]
-
 [build-system]
-requires = ["setuptools>=69"]
+requires = ["setuptools>=69", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
-[dependency-groups]
-dev = [
-    "pytest>=8.4.2",
-]
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["api*", "chat*", "common*", "fsm*", "llm*", "pipelines*", "services*", "store*"]

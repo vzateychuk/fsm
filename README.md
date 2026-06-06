@@ -112,7 +112,8 @@ src/
 
 ```bash
 uv sync
-uv run serve
+
+uv run python -m src.api.main
 ```
 
 Сервер стартует на `http://localhost:8000`.
