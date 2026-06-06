@@ -4,10 +4,12 @@ from typing import NamedTuple
 
 import yaml  # type: ignore[import-untyped]
 
-# Compiled regex for Категория line recognition.
-# Works on already-lowercased text (after S1 PreprocessText).
-# Accepts colon inside or outside bold: **категория:** or **категория**:
-_CATEGORY_PATTERN = re.compile(r"\*\*категория:?\*\*:?\s*(.+)")
+# Category line patterns on already-lowercased text (after S1 PreprocessText).
+_CATEGORY_HEADING_RE = re.compile(r"^#{1,6}\s*категория\s*:+\s*(.+)")
+_CATEGORY_MARKUP_RE = re.compile(
+    r"\*{0,2}\s*категория\s*\*{0,2}\s*:+\s*(?:\*{0,2}\s*)?(.+)"
+)
+_CATEGORY_PLAIN_RE = re.compile(r"^категория\s*:+\s*(.+)")
 
 
 class SchemaIDMatch(NamedTuple):
@@ -34,12 +36,20 @@ def load_categories(config_path: Path) -> list[str]:
     return list(data["categories"])
 
 
+def _extract_category_value(line: str) -> str | None:
+    for pattern in (_CATEGORY_HEADING_RE, _CATEGORY_MARKUP_RE, _CATEGORY_PLAIN_RE):
+        m = pattern.match(line) if pattern is _CATEGORY_PLAIN_RE else pattern.search(line)
+        if m:
+            return m.group(1).strip()
+    return None
+
+
 def find_category(
     lines: list[str],
     allowed_categories: list[str],
     search_limit: int | None = None,
 ) -> SchemaIDMatch | None:
-    """Search for **Категория:** marker in document lines.
+    """Search for Категория marker in document lines.
 
     Scans the first N lines (or all lines if search_limit is None) looking for
     the category pattern. Matches by first word (prefix matching): e.g.,
@@ -55,23 +65,21 @@ def find_category(
         or None if not found or first word not in allowed_categories.
 
     Examples:
+        >>> result = find_category(["# категория: анализы"], ["Анализы"])
+        >>> result.category
+        'Анализы'
         >>> result = find_category(["**категория:** консультация"], ["Консультация"])
         >>> result.category
         'Консультация'
-        >>> result.line_number
-        0
-        >>> result = find_category(["**категория:** исследование (узи/мрт/кт)"], ["Исследование"])
-        >>> result.category
-        'Исследование'
     """
     allowed_by_first_word = {cat.split()[0].lower(): cat for cat in allowed_categories}
     limit = min(search_limit or len(lines), len(lines))
     for i in range(limit):
-        m = _CATEGORY_PATTERN.search(lines[i])
-        if m:
-            found = m.group(1).strip()
-            first_word = found.split()[0].lower()
-            canonical = allowed_by_first_word.get(first_word)
-            if canonical is not None:
-                return SchemaIDMatch(category=canonical, line_number=i)
+        found = _extract_category_value(lines[i])
+        if found is None:
+            continue
+        first_word = found.split()[0].lower()
+        canonical = allowed_by_first_word.get(first_word)
+        if canonical is not None:
+            return SchemaIDMatch(category=canonical, line_number=i)
     return None
