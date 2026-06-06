@@ -42,6 +42,7 @@ from src.pipelines.ingest.steps import (
 from src.pipelines.retrieval.config import RetrievalConfig
 from src.pipelines.retrieval.runner import RetrievalRunner
 from src.services.chat import ChatService
+from src.services.documents import DocumentsService
 from src.services.ingest import IngestService
 from src.services.profile import ProfileService
 from src.services.sessions import SessionsService
@@ -60,6 +61,7 @@ class AppContext:
     sessions_service: SessionsService
     profile_service: ProfileService
     ingest_service: IngestService
+    documents_service: DocumentsService
     chat_service: ChatService
     api_config: ApiConfig
 
@@ -177,6 +179,10 @@ async def create_app_context(
         saga_runner=ingest_runner,
         knowledge_store=knowledge_store,
     )
+    documents_service = DocumentsService(
+        knowledge_store=knowledge_store,
+        file_store=file_store,
+    )
     chat_service = ChatService(
         internal_store=internal_store,
         knowledge_store=knowledge_store,
@@ -194,6 +200,7 @@ async def create_app_context(
         sessions_service=sessions_service,
         profile_service=profile_service,
         ingest_service=ingest_service,
+        documents_service=documents_service,
         chat_service=chat_service,
         api_config=api_config,
     )

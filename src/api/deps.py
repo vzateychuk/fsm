@@ -9,6 +9,7 @@ from fastapi import Request
 
 from src.api.config import ApiConfig
 from src.services.chat import ChatService
+from src.services.documents import DocumentsService
 from src.services.ingest import IngestService
 from src.services.profile import ProfileService
 from src.services.sessions import SessionsService
@@ -20,6 +21,10 @@ def get_sessions_service(request: Request) -> SessionsService:
 
 def get_profile_service(request: Request) -> ProfileService:
     return request.app.state.ctx.profile_service  # type: ignore[no-any-return]
+
+
+def get_documents_service(request: Request) -> DocumentsService:
+    return request.app.state.ctx.documents_service  # type: ignore[no-any-return]
 
 
 def get_ingest_service(request: Request) -> IngestService:

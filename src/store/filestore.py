@@ -19,3 +19,7 @@ class FileStore(Protocol):
             content: Source document content
         """
         ...
+
+    async def delete_source(self, *, document_id: str) -> None:
+        """Remove persisted source file for a document, if present."""
+        ...

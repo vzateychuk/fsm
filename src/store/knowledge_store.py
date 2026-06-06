@@ -140,6 +140,13 @@ class KnowledgeStore(Protocol):
         """Return metadata for a document with the given content hash, or None if not found."""
         ...
 
+    async def delete_document(self, document_id: str) -> bool:
+        """Delete document, its chunks, and FTS entries atomically.
+
+        Returns True if the document existed and was deleted, False if not found.
+        """
+        ...
+
     async def list_docs(
         self,
         *,

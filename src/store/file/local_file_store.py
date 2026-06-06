@@ -21,3 +21,8 @@ class LocalFileStore:
 
         doc_file = filestore_path / f"{document_id}.md"
         doc_file.write_text(content, encoding="utf-8")
+
+    async def delete_source(self, *, document_id: str) -> None:
+        doc_file = Path(self.filestore_dir) / f"{document_id}.md"
+        if doc_file.exists():
+            doc_file.unlink()

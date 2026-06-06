@@ -8,8 +8,8 @@ import tempfile
 from typing import Any
 from uuid import uuid4
 
-from src.store.knowledge_store import DocumentMetadata, KnowledgeStore
 from src.services.errors import IngestFailedError
+from src.store.knowledge_store import DocumentMetadata, KnowledgeStore
 
 logger = logging.getLogger(__name__)
 
@@ -99,11 +99,3 @@ class IngestService:
                     logger.debug("Deleted temp file: %s", tmp_path)
                 except OSError:
                     logger.warning("Failed to delete temp file: %s", tmp_path)
-
-    async def list_documents(self) -> list[DocumentMetadata]:
-        """Return all indexed documents ordered by date descending.
-
-        Returns:
-            List of DocumentMetadata objects.
-        """
-        return await self._knowledge_store.list_documents_by_date(limit=500)

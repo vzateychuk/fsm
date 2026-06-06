@@ -3,8 +3,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from src.api.deps import get_ingest_service
+from src.api.deps import get_documents_service, get_ingest_service
 from src.api.schemas import DocumentDTO
+from src.services.documents import DocumentsService
 from src.services.ingest import IngestService
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
@@ -38,7 +39,15 @@ async def upload_document(
 
 @router.get("", response_model=list[DocumentDTO])
 async def list_documents(
-    service: IngestService = Depends(get_ingest_service),
+    service: DocumentsService = Depends(get_documents_service),
 ) -> list[DocumentDTO]:
     docs = await service.list_documents()
     return [_to_dto(d) for d in docs]
+
+
+@router.delete("/{document_id}", status_code=204)
+async def delete_document(
+    document_id: str,
+    service: DocumentsService = Depends(get_documents_service),
+) -> None:
+    await service.delete_document(document_id)

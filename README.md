@@ -163,6 +163,7 @@ curl http://localhost:8000/api/v1/sessions/{session_id}/messages
 | GET | /api/v1/sessions/{id}/messages | История сообщений |
 | POST | /api/v1/documents | Загрузить документ |
 | GET | /api/v1/documents | Список документов |
+| DELETE | /api/v1/documents/{id} | Удалить документ и чанки |
 
 ---
 

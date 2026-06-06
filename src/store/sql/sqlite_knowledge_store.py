@@ -103,6 +103,37 @@ class SqliteKnowledgeStore:
 
         return chunk_ids
 
+    async def delete_document(self, document_id: str) -> bool:
+        async with aiosqlite.connect(self.db_path) as conn:
+            async with conn.execute(
+                "SELECT 1 FROM documents WHERE id = ?",
+                (document_id,),
+            ) as cursor:
+                if await cursor.fetchone() is None:
+                    return False
+
+            try:
+                await conn.execute(
+                    "INSERT INTO chunks_fts(chunks_fts, rowid, text, heading, section_path, tags_text)"
+                    " SELECT 'delete', c.chunk_pk, c.text, c.heading, c.section_path, c.tags_text"
+                    " FROM chunks c WHERE c.document_id = ?",
+                    (document_id,),
+                )
+                await conn.execute(
+                    "DELETE FROM chunks WHERE document_id = ?",
+                    (document_id,),
+                )
+                await conn.execute(
+                    "DELETE FROM documents WHERE id = ?",
+                    (document_id,),
+                )
+                await conn.commit()
+            except Exception:
+                await conn.rollback()
+                raise
+
+        return True
+
     async def get_documents_raw_text(
         self,
         document_ids: list[str],
