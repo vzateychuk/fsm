@@ -6,8 +6,8 @@ import yaml  # type: ignore[import-untyped]
 
 # Compiled regex for Категория line recognition.
 # Works on already-lowercased text (after S1 PreprocessText).
-# Pattern: **категория:** followed by captured value
-_CATEGORY_PATTERN = re.compile(r"\*\*категория:\*\*\s*(.+)")
+# Accepts colon inside or outside bold: **категория:** or **категория**:
+_CATEGORY_PATTERN = re.compile(r"\*\*категория:?\*\*:?\s*(.+)")
 
 
 class SchemaIDMatch(NamedTuple):
