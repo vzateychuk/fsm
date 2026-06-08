@@ -3,11 +3,19 @@ from __future__ import annotations
 
 import logging
 
+from dataclasses import dataclass
+
 from src.services.errors import NotFoundError
 from src.store.filestore import FileStore
 from src.store.knowledge_store import DocumentMetadata, KnowledgeStore
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentDetail:
+    metadata: DocumentMetadata
+    content: str
 
 
 class DocumentsService:
@@ -24,6 +32,23 @@ class DocumentsService:
     async def list_documents(self) -> list[DocumentMetadata]:
         """Return all indexed documents ordered by date descending."""
         return await self._knowledge_store.list_documents_by_date(limit=500)
+
+    async def get_document(self, document_id: str) -> DocumentDetail | None:
+        """Retrieve a single document with metadata and raw text by ID.
+
+        Returns:
+            DocumentDetail if found, None if not found.
+        """
+        metadata = await self._knowledge_store.get_document_metadata(document_id)
+        if metadata is None:
+            return None
+
+        raw_texts = await self._knowledge_store.get_documents_raw_text([document_id])
+        content = raw_texts.get(document_id)
+        if content is None:
+            return None
+
+        return DocumentDetail(metadata=metadata, content=content)
 
     async def delete_document(self, document_id: str) -> None:
         """Delete an indexed document, its chunks, FTS entries, and source file.

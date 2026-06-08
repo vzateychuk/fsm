@@ -4,8 +4,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from src.api.deps import get_documents_service, get_ingest_service
-from src.api.schemas import DocumentDTO
-from src.services.documents import DocumentsService
+from src.api.schemas import DocumentDTO, DocumentDetailDTO
+from src.services.documents import DocumentDetail, DocumentsService
 from src.services.ingest import IngestService
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
@@ -18,6 +18,10 @@ def _to_dto(doc: object) -> DocumentDTO:
         document_date=doc.document_date,  # type: ignore[attr-defined]
         indexed_at=doc.indexed_at,  # type: ignore[attr-defined]
     )
+
+
+def _to_detail_dto(doc: DocumentDetail) -> DocumentDetailDTO:
+    return DocumentDetailDTO(**_to_dto(doc.metadata).model_dump(), content=doc.content)
 
 
 @router.post("", response_model=DocumentDTO, status_code=201)
@@ -43,6 +47,17 @@ async def list_documents(
 ) -> list[DocumentDTO]:
     docs = await service.list_documents()
     return [_to_dto(d) for d in docs]
+
+
+@router.get("/{document_id}", response_model=DocumentDetailDTO)
+async def get_document(
+    document_id: str,
+    service: DocumentsService = Depends(get_documents_service),
+) -> DocumentDetailDTO:
+    doc = await service.get_document(document_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail=f"Document {document_id!r} not found")
+    return _to_detail_dto(doc)
 
 
 @router.delete("/{document_id}", status_code=204)

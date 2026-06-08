@@ -66,6 +66,10 @@ class DocumentDTO(BaseModel):
     indexed_at: str
 
 
+class DocumentDetailDTO(DocumentDTO):
+    content: str
+
+
 # ---------------------------------------------------------------------------
 # Profile DTO
 # ---------------------------------------------------------------------------

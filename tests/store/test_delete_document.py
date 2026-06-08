@@ -88,6 +88,26 @@ class TestDeleteDocument:
         assert len(await store.get_document_chunks("doc2", limit=10)) == 1
 
 
+class TestDocumentsServiceGetDocument:
+    async def test_get_existing_returns_metadata_and_content(
+        self, store: SqliteKnowledgeStore
+    ) -> None:
+        await _seed_document(store)
+        service = DocumentsService(knowledge_store=store)
+
+        doc = await service.get_document("doc1")
+
+        assert doc is not None
+        assert doc.metadata.document_id == "doc1"
+        assert doc.metadata.category == "Исследование"
+        assert doc.content == "full document text"
+
+    async def test_get_missing_returns_none(self, store: SqliteKnowledgeStore) -> None:
+        service = DocumentsService(knowledge_store=store)
+
+        assert await service.get_document("missing") is None
+
+
 class TestDocumentsServiceDeleteDocument:
     async def test_delete_removes_db_and_filestore(
         self, store: SqliteKnowledgeStore, tmp_path: Path
