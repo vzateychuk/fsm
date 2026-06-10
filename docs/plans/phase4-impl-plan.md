@@ -226,7 +226,7 @@ CRUD-эндпоинты сессий по обычным REST-конвенция
 - **Сообщение:** `message_id, session_id, role, content, created_at`
 - **Сессия:** `session_id, title, status, created_at, updated_at`; статус нормализован к `active | archived`
 - **Ответ хода чата:** `message_id, role, content, created_at` (только assistant-сообщение)
-- **Документ:** `id, category, document_date, indexed_at`; без filename, без status, без error
+- **Документ:** `id, source_path, category, document_date, indexed_at` (`source_path` — исходное имя файла при загрузке)
 - **Профиль:** все поля из `config/patient.yaml` (`name, age, sex, date_of_birth, chronic_conditions, current_medications, allergies`)
 - **Ошибка:** `code, message, details?`
 

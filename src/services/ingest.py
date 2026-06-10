@@ -8,6 +8,7 @@ import tempfile
 from typing import Any
 from uuid import uuid4
 
+from common.upload_filename import sanitize_upload_filename
 from src.services.errors import IngestFailedError
 from src.store.knowledge_store import DocumentMetadata, KnowledgeStore
 
@@ -31,11 +32,17 @@ class IngestService:
         self._runner = saga_runner
         self._knowledge_store = knowledge_store
 
-    async def ingest_document(self, content: str) -> DocumentMetadata:
+    async def ingest_document(
+        self,
+        content: str,
+        *,
+        original_filename: str | None = None,
+    ) -> DocumentMetadata:
         """Save and index a Markdown document synchronously.
 
         Args:
             content: Markdown document text.
+            original_filename: Basename of the uploaded or CLI source file.
 
         Returns:
             DocumentMetadata for the indexed document.
@@ -46,11 +53,17 @@ class IngestService:
         # Lazy import to keep services domain independent from inner pipeline modules
         from src.pipelines.ingest.models import IngestData, IngestInput
 
+        filename = sanitize_upload_filename(original_filename)
+
         # Deduplication: return existing document if content hash matches.
         sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
         existing = await self._knowledge_store.find_document_by_sha256(sha256)
         if existing is not None:
-            logger.info("Duplicate upload detected, returning existing document_id=%s", existing.document_id)
+            logger.info(
+                "Duplicate upload detected, returning existing document_id=%s filename=%s",
+                existing.document_id,
+                filename,
+            )
             return existing
 
         tmp_path: str | None = None
@@ -62,11 +75,11 @@ class IngestService:
                 os.close(fd)
 
             run_id = f"api-ingest-{uuid4().hex[:8]}"
-            logger.info("Starting ingest run_id=%s", run_id)
+            logger.info("Starting ingest run_id=%s filename=%s", run_id, filename)
 
             ctx = await self._runner.run(
                 run_id=run_id,
-                input=IngestInput(source_path=tmp_path),
+                input=IngestInput(source_path=tmp_path, original_filename=filename),
                 initial_data=IngestData(),
             )
 
@@ -81,16 +94,22 @@ class IngestService:
                 )
 
             logger.info(
-                "Ingest completed document_id=%s category=%s",
+                "Ingest completed document_id=%s category=%s filename=%s",
                 document_id,
                 doc.category,
+                filename,
             )
             return doc
 
         except IngestFailedError:
             raise
         except Exception as e:
-            logger.error("Ingest pipeline failed: %s", e, exc_info=True)
+            logger.error(
+                "Ingest pipeline failed filename=%s: %s",
+                filename,
+                e,
+                exc_info=True,
+            )
             raise IngestFailedError(f"Ingest pipeline failed: {e}") from e
         finally:
             if tmp_path is not None and os.path.exists(tmp_path):

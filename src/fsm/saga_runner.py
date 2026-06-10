@@ -48,12 +48,15 @@ class SagaRunner(Generic[TIn, TData]):
 
             # Сохранить данные после шага
             data_type_name = type(run_ctx.data).__name__
+            checkpoint_source = getattr(run_ctx.input, "original_filename", None) or (
+                run_ctx.input.source_path if hasattr(run_ctx.input, "source_path") else None
+            )
             progress: SavedProgress = {
                 "run_id": run_ctx.run_id,
                 "saga_name": run_ctx.saga_name,
                 "cursor": run_ctx.cursor,
                 "state": run_ctx.data.model_dump(),
-                "source_path": run_ctx.input.source_path if hasattr(run_ctx.input, "source_path") else None,
+                "source_path": checkpoint_source,
             }
             await self._store.save(progress)
             logger.info(

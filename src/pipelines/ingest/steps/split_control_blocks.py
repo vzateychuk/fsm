@@ -35,12 +35,19 @@ class SplitControlBlocks:
         content = assert_raw_content(ctx.data, self.id)
 
         # Extract document date: content marker > YAML metadata > filename prefix
-        extracted_date = extract_document_date(content, source_path=ctx.input.source_path)
+        extracted_date = extract_document_date(
+            content, source_path=ctx.input.original_filename
+        )
 
         if not extracted_date:
+            logger.warning(
+                "Document date not found: filename=%s source_path=%s",
+                ctx.input.original_filename,
+                ctx.input.source_path,
+            )
             raise IngestError(
                 "E_NO_DOCUMENT_DATE",
-                "Document date not found in content, metadata, or filename",
+                f"Document date not found for {ctx.input.original_filename!r}",
             )
         ctx.data.document_date = extracted_date
 

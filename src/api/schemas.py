@@ -5,7 +5,7 @@ these DTOs are the serialization boundary at the HTTP layer only.
 """
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
@@ -61,6 +61,7 @@ class MessageDTO(BaseModel):
 
 class DocumentDTO(BaseModel):
     id: str
+    source_path: str = Field(description="Исходное имя файла при загрузке")
     category: str
     document_date: str
     indexed_at: str

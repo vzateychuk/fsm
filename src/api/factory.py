@@ -34,7 +34,6 @@ from src.pipelines.ingest.steps import (
     ParseToTokens,
     PersistChunks,
     PersistDocument,
-    PersistSourceFile,
     PreprocessText,
     SplitControlBlocks,
     Tagging,
@@ -46,7 +45,6 @@ from src.services.documents import DocumentsService
 from src.services.ingest import IngestService
 from src.services.profile import ProfileService
 from src.services.sessions import SessionsService
-from src.store.file.local_file_store import LocalFileStore
 from src.store.sql.sql_store import SqlStore
 from src.store.sql.sqlite_internal_store import SqliteInternalStore
 from src.store.sql.sqlite_knowledge_store import SqliteKnowledgeStore
@@ -97,7 +95,6 @@ async def create_app_context(
     patient = PatientInfo.load(Path("config/patient.yaml"))
 
     db_path = os.getenv("DB_PATH", ".data/db/ingest.db")
-    filestore_dir = os.getenv("FILESTORE_DIR", ".data/filestore")
 
     # Ensure the DB directory exists before connecting
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -107,7 +104,6 @@ async def create_app_context(
     knowledge_store = SqliteKnowledgeStore(db_path=db_path)
     internal_store = SqliteInternalStore(db_path=db_path)
     saga_store = SqlStore(db_path=db_path)
-    file_store = LocalFileStore(filestore_dir=filestore_dir)
 
     # LLM client with optional retry wrapper
     base_client = OpenAICompatibleClient(config=llm_config)
@@ -164,7 +160,6 @@ async def create_app_context(
                 max_section_chars=ingest_config.max_section_chars,
             ),
             Tagging(),
-            PersistSourceFile(store=file_store),
             PersistDocument(store=knowledge_store),
             PersistChunks(store=knowledge_store),
         ],
@@ -179,10 +174,7 @@ async def create_app_context(
         saga_runner=ingest_runner,
         knowledge_store=knowledge_store,
     )
-    documents_service = DocumentsService(
-        knowledge_store=knowledge_store,
-        file_store=file_store,
-    )
+    documents_service = DocumentsService(knowledge_store=knowledge_store)
     chat_service = ChatService(
         internal_store=internal_store,
         knowledge_store=knowledge_store,

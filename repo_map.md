@@ -148,7 +148,6 @@ tests/
 | `PORT` | no | Uvicorn bind port |
 | `RELOAD` | no | Uvicorn autoreload flag |
 | `DB_PATH` | no | SQLite database path |
-| `FILESTORE_DIR` | no | Local file store path |
 | `CORS_ORIGINS` | no | Allowed browser origins |
 | `LOG_FILE` | no | Optional log file path |
 | `NVIDIA_API_KEY` | no | NVIDIA LLM API key |

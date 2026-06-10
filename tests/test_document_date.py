@@ -119,3 +119,26 @@ async def test_raises_when_document_date_missing():
 
     assert exc_info.value.code == "E_NO_DOCUMENT_DATE"
     assert ctx.data.document_date == ""
+
+
+@pytest.mark.asyncio
+async def test_date_extracted_from_original_filename_with_temp_source_path():
+    """API upload uses temp source_path; date must come from original_filename."""
+    content = "**Категория:** Консультация\n\nBody without date markers.\n"
+
+    ctx = RunContext[IngestInput, IngestData](
+        run_id="test-run",
+        saga_name="test-ingest",
+        cursor=0,
+        input=IngestInput(
+            source_path="/tmp/tmpxyz123.md",
+            original_filename="2024-10-13_report.md",
+        ),
+        data=IngestData(raw_content=content),
+    )
+
+    config = Path(__file__).parents[1] / "config" / "categories.yaml"
+    step = SplitControlBlocks(categories_config=config)
+    await step.run(ctx)
+
+    assert ctx.data.document_date == "2024-10-13"

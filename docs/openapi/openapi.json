@@ -585,6 +585,11 @@
             "type": "string",
             "title": "Id"
           },
+          "source_path": {
+            "type": "string",
+            "title": "Source Path",
+            "description": "Исходное имя файла при загрузке"
+          },
           "category": {
             "type": "string",
             "title": "Category"
@@ -601,6 +606,7 @@
         "type": "object",
         "required": [
           "id",
+          "source_path",
           "category",
           "document_date",
           "indexed_at"
@@ -612,6 +618,11 @@
           "id": {
             "type": "string",
             "title": "Id"
+          },
+          "source_path": {
+            "type": "string",
+            "title": "Source Path",
+            "description": "Исходное имя файла при загрузке"
           },
           "category": {
             "type": "string",
@@ -633,6 +644,7 @@
         "type": "object",
         "required": [
           "id",
+          "source_path",
           "category",
           "document_date",
           "indexed_at",

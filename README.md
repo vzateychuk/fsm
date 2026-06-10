@@ -93,18 +93,19 @@ src/
 - **`__init__.py`** — экспорт публичного API
 
 **Текущая реализация:**
-- **ingest** — обработка markdown-документов (11 шагов):
+- **ingest** — обработка markdown-документов (10 шагов):
   1. LoadSource — загрузка файла
   2. PreprocessText — нормализация и SHA256 хеш
-  3. DetectTargetSchema — определение схемы из заголовка
-  4. SplitControlBlocks — разбор на блоки (схема, метаданные, тело)
+  3. DetectTargetSchema — определение категории из заголовка
+  4. SplitControlBlocks — извлечение даты, очистка тела
   5. ParseToTokens — парсинг в токены
   6. BuildSectionPath — построение иерархии заголовков
   7. ChunkifyBlocks — группировка в логические блоки
   8. Tagging — извлечение ключевых терминов
-  9. PersistDocument — сохранение метаданных документа
-  10. PersistChunks — сохранение блоков в БД
-  11. UpdateFTS — обновление индекса FTS5
+  9. PersistDocument — сохранение метаданных и `raw_text` в БД (`source_path` = исходное имя файла)
+  10. PersistChunks — сохранение блоков и синхронизация FTS5
+
+Текст документа хранится только в `documents.raw_text`; отдельный filestore не используется. Orphan-файлы в `.data/filestore/` от старых версий можно удалить вручную.
 
 ## REST API (Backend)
 

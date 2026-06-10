@@ -10,7 +10,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 import aiosqlite
 import pytest
 
-from store.file.local_file_store import LocalFileStore
 from store.sql.sqlite_knowledge_store import SqliteKnowledgeStore
 from src.services.documents import DocumentsService
 from src.services.errors import NotFoundError
@@ -99,6 +98,7 @@ class TestDocumentsServiceGetDocument:
 
         assert doc is not None
         assert doc.metadata.document_id == "doc1"
+        assert doc.metadata.source_path == "test.md"
         assert doc.metadata.category == "Исследование"
         assert doc.content == "full document text"
 
@@ -109,26 +109,15 @@ class TestDocumentsServiceGetDocument:
 
 
 class TestDocumentsServiceDeleteDocument:
-    async def test_delete_removes_db_and_filestore(
-        self, store: SqliteKnowledgeStore, tmp_path: Path
+    async def test_delete_removes_db_rows(
+        self, store: SqliteKnowledgeStore
     ) -> None:
         await _seed_document(store)
-        file_store = LocalFileStore(filestore_dir=str(tmp_path / "filestore"))
-        await file_store.save_source(
-            document_id="doc1",
-            source_path="test.md",
-            content="**Категория:** Исследование",
-        )
-
-        service = DocumentsService(
-            knowledge_store=store,
-            file_store=file_store,
-        )
+        service = DocumentsService(knowledge_store=store)
 
         await service.delete_document("doc1")
 
         assert await store.get_document_metadata("doc1") is None
-        assert not (tmp_path / "filestore" / "doc1.md").exists()
 
     async def test_delete_missing_raises_not_found(
         self, store: SqliteKnowledgeStore

@@ -1,12 +1,17 @@
 """Document upload and listing endpoints."""
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
+from common.upload_filename import sanitize_upload_filename
 from src.api.deps import get_documents_service, get_ingest_service
 from src.api.schemas import DocumentDTO, DocumentDetailDTO
 from src.services.documents import DocumentDetail, DocumentsService
 from src.services.ingest import IngestService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
 
@@ -14,6 +19,7 @@ router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
 def _to_dto(doc: object) -> DocumentDTO:
     return DocumentDTO(
         id=doc.document_id,  # type: ignore[attr-defined]
+        source_path=doc.source_path,  # type: ignore[attr-defined]
         category=doc.category,  # type: ignore[attr-defined]
         document_date=doc.document_date,  # type: ignore[attr-defined]
         indexed_at=doc.indexed_at,  # type: ignore[attr-defined]
@@ -30,14 +36,15 @@ async def upload_document(
     service: IngestService = Depends(get_ingest_service),
 ) -> DocumentDTO:
     raw = await file.read()
+    filename = sanitize_upload_filename(file.filename)
+    logger.info("Document upload: filename=%s size=%d", filename, len(raw))
     try:
         content = raw.decode("utf-8")
     except UnicodeDecodeError:
-        # Not an AppError — this is an input validation error at the HTTP boundary.
         raise HTTPException(
             status_code=422, detail="File must be UTF-8 encoded Markdown text"
         )
-    doc = await service.ingest_document(content)
+    doc = await service.ingest_document(content, original_filename=filename)
     return _to_dto(doc)
 
 

@@ -6,7 +6,6 @@ import logging
 from dataclasses import dataclass
 
 from src.services.errors import NotFoundError
-from src.store.filestore import FileStore
 from src.store.knowledge_store import DocumentMetadata, KnowledgeStore
 
 logger = logging.getLogger(__name__)
@@ -21,13 +20,8 @@ class DocumentDetail:
 class DocumentsService:
     """Application service for document catalog operations outside the ingest pipeline."""
 
-    def __init__(
-        self,
-        knowledge_store: KnowledgeStore,
-        file_store: FileStore | None = None,
-    ) -> None:
+    def __init__(self, knowledge_store: KnowledgeStore) -> None:
         self._knowledge_store = knowledge_store
-        self._file_store = file_store
 
     async def list_documents(self) -> list[DocumentMetadata]:
         """Return all indexed documents ordered by date descending."""
@@ -51,7 +45,7 @@ class DocumentsService:
         return DocumentDetail(metadata=metadata, content=content)
 
     async def delete_document(self, document_id: str) -> None:
-        """Delete an indexed document, its chunks, FTS entries, and source file.
+        """Delete an indexed document, its chunks, and FTS entries.
 
         Raises:
             NotFoundError: If the document does not exist.
@@ -64,7 +58,4 @@ class DocumentsService:
         if not deleted:
             raise NotFoundError(f"Document {document_id!r} not found")
 
-        if self._file_store is not None:
-            await self._file_store.delete_source(document_id=document_id)
-
-        logger.info("Deleted document: %s", document_id)
+        logger.info("Deleted document: %s (source_path=%s)", document_id, doc.source_path)

@@ -11,6 +11,7 @@ class IngestInput(SagaInput):
     """Input data for ingest pipeline"""
 
     source_path: str
+    original_filename: str = "upload.md"
 
 
 @dataclass(slots=True)
@@ -73,7 +74,7 @@ class IngestData(SagaData):
     - S5 BuildSectionPath: block_events (all blocks with section_path and heading)
     - S6 ChunkifyBlocks: chunks (len >= 1, E_EMPTY_CHUNKS if empty)
     - S7 Tagging: tagged_chunks (len == len(chunks), tags_text not empty)
-    - S8 PersistDocument: document_id (not None, deterministic from file_hash[:32])
+    - S8 PersistDocument: document_id (not None); source_path stored as original_filename
     - S9 PersistChunks: chunk_ids (len == len(tagged_chunks)); fts_updated always True (FTS sync is atomic inside S9)
     """
 
@@ -84,9 +85,6 @@ class IngestData(SagaData):
 
     # S1 PreprocessText
     file_hash: str | None = None
-
-    # S7.5 PersistSourceFile
-    filestore_path: str | None = None
 
     # S2 DetectTargetSchema
     target_schema: str | None = None
