@@ -1,13 +1,11 @@
 """Test document_date extraction and retrieval."""
 
 import tempfile
-from datetime import datetime, UTC
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
-from pipelines.ingest.models import IngestData, IngestInput
+from pipelines.ingest.models import IngestData, IngestError, IngestInput
 from pipelines.ingest.steps.split_control_blocks import SplitControlBlocks
 from fsm.core import RunContext
 from store.sql.sqlite_knowledge_store import SqliteKnowledgeStore
@@ -77,7 +75,7 @@ async def test_list_documents_by_date():
             source_sha256="ghi789",
             category="Анализ",
             indexed_at="2025-01-03T10:00:00+00:00",
-            document_date="2025-01-03",  # No explicit date in content, would fallback to current date
+            document_date="2025-01-03",
             raw_text="Content 3",
         )
 
@@ -101,30 +99,23 @@ async def test_list_documents_by_date():
 
 
 @pytest.mark.asyncio
-async def test_fallback_to_current_date_when_extraction_fails(caplog):
-    """Test that when document_date cannot be extracted, fallback uses current date with warning."""
-    # File with no date in name and no date markers in content
-    fixture_path = Path(__file__).parent / "fixtures" / "ingest" / "minimal_valid.md"
-    content = fixture_path.read_text(encoding="utf-8")
+async def test_raises_when_document_date_missing():
+    """Test that ingest fails when document_date cannot be extracted."""
+    content = "**Категория:** Консультация\n\nNo date markers in this document.\n"
 
     ctx = RunContext[IngestInput, IngestData](
         run_id="test-run",
         saga_name="test-ingest",
         cursor=0,
-        input=IngestInput(source_path=str(fixture_path)),
+        input=IngestInput(source_path="consultation.md"),
         data=IngestData(raw_content=content),
     )
 
     config = Path(__file__).parents[1] / "config" / "categories.yaml"
     step = SplitControlBlocks(categories_config=config)
 
-    with caplog.at_level("WARNING"):
+    with pytest.raises(IngestError) as exc_info:
         await step.run(ctx)
 
-    # document_date should be set to current date (today)
-    today = datetime.now(UTC).date().isoformat()
-    assert ctx.data.document_date == today
-
-    # Check that warning was logged
-    assert "Could not extract document date" in caplog.text
-    assert "Using current date as fallback" in caplog.text
+    assert exc_info.value.code == "E_NO_DOCUMENT_DATE"
+    assert ctx.data.document_date == ""

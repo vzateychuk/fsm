@@ -1,13 +1,12 @@
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
 from pathlib import Path
 from typing import ClassVar
 
 from common.utils.parsers import extract_document_date, find_category, load_categories
 from fsm.core import RunContext
 from pipelines.ingest.guards import assert_raw_content
-from pipelines.ingest.models import IngestData, IngestInput
+from pipelines.ingest.models import IngestData, IngestError, IngestInput
 
 logger = logging.getLogger(__name__)
 
@@ -38,16 +37,12 @@ class SplitControlBlocks:
         # Extract document date: content marker > YAML metadata > filename prefix
         extracted_date = extract_document_date(content, source_path=ctx.input.source_path)
 
-        if extracted_date:
-            ctx.data.document_date = extracted_date
-        else:
-            # Fallback: use current date and log warning
-            fallback_date = datetime.now(UTC).date().isoformat()
-            logger.warning(
-                f"Could not extract document date from {ctx.input.source_path}. "
-                f"Using current date as fallback: {fallback_date}"
+        if not extracted_date:
+            raise IngestError(
+                "E_NO_DOCUMENT_DATE",
+                "Document date not found in content, metadata, or filename",
             )
-            ctx.data.document_date = fallback_date
+        ctx.data.document_date = extracted_date
 
         lines = content.split("\n")
 

@@ -68,7 +68,7 @@ class IngestData(SagaData):
     - S0 LoadSource: raw_content (not None, full file text)
     - S1 PreprocessText: file_hash (not None, 64 hex chars)
     - S2 DetectTargetSchema: target_schema (not None, canonical value from config/categories.json)
-    - S3 SplitControlBlocks: md_body (not None, category line removed)
+    - S3 SplitControlBlocks: md_body (not None, category line removed), document_date (non-empty ISO date)
     - S4 ParseToTokens: tokens (may be empty, E_MD_PARSE_FAIL on parser error)
     - S5 BuildSectionPath: block_events (all blocks with section_path and heading)
     - S6 ChunkifyBlocks: chunks (len >= 1, E_EMPTY_CHUNKS if empty)
@@ -124,6 +124,7 @@ class IngestError(Exception):
         E_READ_FAIL: file read failed (transient)
         E_DB_FAIL: database operation failed (transient)
         E_NO_SCHEMA_ID: Категория not found or value not in allowed categories (fatal)
+        E_NO_DOCUMENT_DATE: document date not found in content, metadata, or filename (fatal)
         E_MD_PARSE_FAIL: markdown parsing failed (fatal)
         E_EMPTY_CHUNKS: no chunks produced (fatal)
     """

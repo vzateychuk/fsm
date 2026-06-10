@@ -9,7 +9,7 @@ INVARIANTS: dict[str, list[str]] = {
     "load_source": ["raw_content"],
     "preprocess_text": ["raw_content", "file_hash"],
     "detect_target_schema": ["target_schema"],
-    "split_control_blocks": ["md_body"],
+    "split_control_blocks": ["md_body", "document_date"],
     "parse_to_tokens": ["tokens"],
     "build_section_path": ["block_events"],
     "chunkify_blocks": ["chunks"],
