@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import ClassVar
 
+from common.utils.parsers.document_date import DocumentDateSuffixConfig
 from common.utils.parsers import extract_document_date, find_category, load_categories
 from fsm.core import RunContext
 from pipelines.ingest.guards import assert_raw_content
@@ -25,6 +26,9 @@ class SplitControlBlocks:
     desc: ClassVar[str] = "Remove category line from body"
 
     categories_config: Path = field(default_factory=lambda: _DEFAULT_CATEGORIES_CONFIG)
+    date_suffix_config: DocumentDateSuffixConfig = field(
+        default_factory=DocumentDateSuffixConfig.defaults
+    )
     _allowed: list[str] = field(init=False)
 
     def __post_init__(self) -> None:
@@ -36,7 +40,9 @@ class SplitControlBlocks:
 
         # Extract document date: content marker > YAML metadata > filename prefix
         extracted_date = extract_document_date(
-            content, source_path=ctx.input.original_filename
+            content,
+            source_path=ctx.input.original_filename,
+            date_config=self.date_suffix_config,
         )
 
         if not extracted_date:

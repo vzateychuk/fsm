@@ -35,7 +35,7 @@ async def test_split_control_blocks_extracts_yaml_date():
 
 @pytest.mark.asyncio
 async def test_list_documents_by_date():
-    """Test list_documents_by_date returns documents in correct order."""
+    """Test list_documents_by_date returns documents ordered by indexed_at."""
     with tempfile.TemporaryDirectory() as tmpdir:
         db_path = Path(tmpdir) / "test.db"
         store = SqliteKnowledgeStore(db_path=str(db_path))
@@ -79,23 +79,20 @@ async def test_list_documents_by_date():
             raw_text="Content 3",
         )
 
-        # Test list_documents_by_date without filter
+        # Most recently uploaded first (indexed_at DESC)
         results = await store.list_documents_by_date(limit=5)
         assert len(results) == 3
-        # Most recent should be first (doc1 with 2025-06-15)
-        assert results[0].document_id == "doc1"
-        assert results[0].document_date == "2025-06-15"
+        assert [doc.document_id for doc in results] == ["doc3", "doc2", "doc1"]
 
         # Test with category filter
         results = await store.list_documents_by_date(limit=5, category="Диагноз")
         assert len(results) == 2
-        assert results[0].document_id == "doc1"
-        assert results[1].document_id == "doc2"
+        assert [doc.document_id for doc in results] == ["doc2", "doc1"]
 
         # Test limit
         results = await store.list_documents_by_date(limit=1)
         assert len(results) == 1
-        assert results[0].document_id == "doc1"
+        assert results[0].document_id == "doc3"
 
 
 @pytest.mark.asyncio

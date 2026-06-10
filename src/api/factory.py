@@ -152,7 +152,10 @@ async def create_app_context(
             LoadSource(),
             PreprocessText(),
             DetectTargetSchema(categories_config=categories_config),
-            SplitControlBlocks(categories_config=categories_config),
+            SplitControlBlocks(
+                categories_config=categories_config,
+                date_suffix_config=ingest_config.date_suffix_config,
+            ),
             ParseToTokens(),
             BuildSectionPath(),
             ChunkifyBlocks(

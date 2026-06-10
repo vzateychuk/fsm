@@ -24,7 +24,7 @@ class DocumentsService:
         self._knowledge_store = knowledge_store
 
     async def list_documents(self) -> list[DocumentMetadata]:
-        """Return all indexed documents ordered by date descending."""
+        """Return all indexed documents ordered by upload time descending."""
         return await self._knowledge_store.list_documents_by_date(limit=500)
 
     async def get_document(self, document_id: str) -> DocumentDetail | None:

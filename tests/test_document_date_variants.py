@@ -110,8 +110,8 @@ class TestExpandedFormats:
         content = "- **Дата:** 2024-03-15 09:00\n"
         assert extract_document_date(content) == "2024-03-15"
 
-    def test_skip_order_date(self) -> None:
-        """**Дата заказа:** should be excluded (not document date)"""
+    def test_skip_order_date_when_preferred_present(self) -> None:
+        """**Дата заказа:** skipped in pass 1 when **Дата анализа:** is present."""
         content = "- **Дата заказа:** 15.03.2024\n- **Дата анализа:** 20.03.2024\n"
         assert extract_document_date(content) == "2024-03-20"
 

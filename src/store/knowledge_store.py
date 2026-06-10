@@ -111,11 +111,7 @@ class KnowledgeStore(Protocol):
         limit: int = 5,
         category: Category | None = None,
     ) -> list[DocumentMetadata]:
-        """Return most recent documents ordered by document_date (with indexed_at fallback).
-
-        Returns up to `limit` documents, optionally filtered by category.
-        Sorted by COALESCE(document_date, indexed_at) DESC (most recent first).
-        """
+        """Return documents ordered by upload time (indexed_at) descending."""
         ...
 
     async def get_document_chunks(

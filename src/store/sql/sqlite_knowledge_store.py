@@ -345,7 +345,7 @@ class SqliteKnowledgeStore:
             query += " WHERE category = ?"
             params.append(category)
 
-        query += " ORDER BY COALESCE(document_date, indexed_at) DESC LIMIT ?"
+        query += " ORDER BY indexed_at DESC, id DESC LIMIT ?"
         params.append(limit)
 
         async with aiosqlite.connect(self.db_path) as conn:

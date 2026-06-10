@@ -1,7 +1,7 @@
 """Tests for extract_document_date utility - content-based date extraction."""
 from pathlib import Path
 
-from common.utils.parsers import extract_document_date
+from common.utils.parsers import DocumentDateSuffixConfig, extract_document_date
 
 
 class TestExtractFromContent:
@@ -96,9 +96,37 @@ class TestNoDate:
         assert extract_document_date(content) is None
 
     def test_only_birth_date_in_content(self) -> None:
-        # Single excluded marker should not match.
+        # Single hard-excluded marker should not match.
         content = "- **Дата рождения:** 23.02.1971\n"
         assert extract_document_date(content) is None
+
+    def test_order_date_used_as_fallback_when_no_preferred(self) -> None:
+        content = (
+            "- **Дата рождения:** 23.02.1971\n"
+            "- **Дата заказа:** 04.06.2026 12:05\n"
+        )
+        assert extract_document_date(content) == "2026-06-04"
+
+    def test_validation_date_preferred_over_order_date_in_fallback(self) -> None:
+        content = (
+            "- **Дата заказа:** 03.06.2026 12:05\n"
+            "- **Дата валидации:** 04.06.2026 18:06\n"
+        )
+        assert extract_document_date(content) == "2026-06-04"
+
+    def test_empty_fallback_list_falls_through_to_filename(self) -> None:
+        """When fallback disabled and order/validation hard-excluded, filename is used."""
+        no_fallback = DocumentDateSuffixConfig(
+            hard_excluded=("рождения", "отправки", "печати", "заказа", "валидации"),
+            fallback=(),
+            filename_patterns=("^(\\d{4}-\\d{2}-\\d{2})[_\\-]",),
+        )
+        content = "- **Дата заказа:** 15.03.2024\n- **Дата рождения:** 23.02.1971\n"
+        assert extract_document_date(
+            content,
+            source_path=Path("2024-10-13_lab-panel.md"),
+            date_config=no_fallback,
+        ) == "2024-10-13"
 
     def test_filename_not_used_without_source_path(self) -> None:
         """Without source_path argument filename extraction is skipped -> None."""
@@ -130,7 +158,13 @@ class TestExtractFromFilename:
         content = "- **Дата исследования:** 15.03.2024\n"
         assert extract_document_date(content, source_path=Path("2024-10-13_lab-panel.md")) == "2024-03-15"
 
-    def test_filename_used_when_all_content_dates_excluded(self) -> None:
-        # Дата заказа is blacklisted in content — filename should win
-        content = "- **Дата заказа:** 13.10.2024\n- **Дата рождения:** 23.02.1971\n"
-        assert extract_document_date(content, source_path=Path("2024-10-13_lab-panel.md")) == "2024-10-13"
+    def test_order_date_used_when_no_preferred_date(self) -> None:
+        # Дата заказа is fallback when no preferred date marker exists
+        content = "- **Дата заказа:** 15.03.2024\n- **Дата рождения:** 23.02.1971\n"
+        assert extract_document_date(content, source_path=Path("2024-10-13_lab-panel.md")) == "2024-03-15"
+
+    def test_filename_suffix_yyyymmdd(self) -> None:
+        assert extract_document_date(
+            "# Title\n",
+            source_path=Path("helix-lab-blood-minimax-20260604.md"),
+        ) == "2026-06-04"
