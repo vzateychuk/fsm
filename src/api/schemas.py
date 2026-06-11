@@ -84,6 +84,32 @@ class ProfileDTO(BaseModel):
     chronic_conditions: list[str]
     current_medications: list[str]
     allergies: list[str]
+    is_complete: bool
+
+
+class PatchProfileRequest(BaseModel):
+    name: str
+    age: int
+    sex: str
+    date_of_birth: str
+    chronic_conditions: list[str] = Field(default_factory=list)
+    current_medications: list[str] = Field(default_factory=list)
+    allergies: list[str] = Field(default_factory=list)
+
+
+class RegisterRequest(BaseModel):
+    username: str
+    password: str = Field(min_length=8)
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class AuthMeResponse(BaseModel):
+    username: str
+    profile_complete: bool
 
 
 # ---------------------------------------------------------------------------

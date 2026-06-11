@@ -14,9 +14,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from src.api.factory import create_app_context
+from src.api.factory import create_shared_context
 from src.api.middleware import RequestIDFilter, RequestIDMiddleware
-from src.api.routers import chat, documents, health, profile, sessions
+from src.api.routers import auth, chat, documents, health, profile, sessions
 from src.services.errors import AppError
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    app.state.ctx = await create_app_context()
+    app.state.shared_ctx = await create_shared_context()
     logger.info("Application context initialized")
     yield
     logger.info("Application shutting down")
@@ -57,6 +57,8 @@ def create_app() -> FastAPI:
     # during a request automatically carries the correlation ID.
     logging.getLogger().addFilter(RequestIDFilter())
 
+    # Domain errors from dependencies (UnauthorizedError, ProfileIncompleteError, …)
+    # are converted here — no separate middleware required.
     @app.exception_handler(AppError)
     async def _app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(
@@ -81,6 +83,7 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(health.router)
+    app.include_router(auth.router)
     app.include_router(sessions.router)
     app.include_router(chat.router)
     app.include_router(documents.router)

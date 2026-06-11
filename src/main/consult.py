@@ -46,7 +46,7 @@ def consult(
 
     consult_config = ConsultConfig.load(config_path)
     retrieval_config = RetrievalConfig.load(Path("config/retrieve.yaml"))
-    db_path = os.getenv("DB_PATH", ".data/db/ingest.db")
+    db_path = os.getenv("DB_PATH", ".data/db/default.db")
     store = SqliteKnowledgeStore(db_path=db_path)
     retrieval_runner = RetrievalRunner(store=store, config=retrieval_config)
 

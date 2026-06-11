@@ -15,14 +15,15 @@ from src.llm.llm_client import LLMClient
 from src.store.internal_store import InternalStore
 from src.store.knowledge_store import DocSummary, KnowledgeStore
 from src.store.models import MessageRecord
-from src.common.patient import PatientInfo
 from src.services.errors import (
     AppError,
-    NotFoundError,
+    LLMRequestInvalidError,
     LLMTimeoutError,
     LLMUnavailableError,
-    LLMRequestInvalidError,
+    NotFoundError,
 )
+from src.common.patient import PatientInfo
+from src.services.profile import ProfileService
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,7 @@ class ChatService:
         tool_executor: KBToolExecutor,
         retriever: BaselineRetriever,
         chat_config: ChatConfig,
-        patient: PatientInfo,
+        profile_service: ProfileService,
         system_template: str,
         user_template: str,
     ) -> None:
@@ -117,7 +118,7 @@ class ChatService:
         self._tool_executor = tool_executor
         self._retriever = retriever
         self._chat_config = chat_config
-        self._patient = patient
+        self._profile_service = profile_service
         self._system_template = system_template
         self._user_template = user_template
 
@@ -150,8 +151,9 @@ class ChatService:
         all_docs = await self._knowledge_store.list_docs(limit=200)
         document_index = _format_document_index(all_docs)
         now_date = date.today().isoformat()
+        patient = await self._profile_service.get_profile()
         system_message = _build_system_message(
-            self._system_template, self._patient, now_date, document_index
+            self._system_template, patient, now_date, document_index
         )
 
         runner = AgenticLoopRunner(

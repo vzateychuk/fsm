@@ -122,31 +122,117 @@ uv run python -m src.api.main
 - Swagger UI: `http://localhost:8000/docs`
 - API base URL: `http://localhost:8000/api/v1`
 
-Переменные окружения (опционально): `HOST`, `PORT`, `DB_PATH`, `CORS_ORIGINS`.
+Переменные окружения (опционально):
 
-### Основные операции
+| Переменная | По умолчанию | Назначение |
+|------------|--------------|------------|
+| `HOST`, `PORT` | `0.0.0.0`, `8000` | Адрес Uvicorn |
+| `CORS_ORIGINS` | `http://localhost:5173` | Разрешённые origin для браузера |
+| `AUTH_ENABLED` | `true` | `false` — режим Phase 6 без логина (один пользователь из env) |
+| `USERNAME` | `default` | Имя пользователя при `AUTH_ENABLED=false` |
+| `DB_PATH` | `.data/db/{USERNAME}.db` | Путь к user DB при `AUTH_ENABLED=false` |
+| `USER_DB_ROOT` | `.data/db` | Каталог user DB при регистрации |
+| `SYSTEM_DB_PATH` | `.data/db/system.db` | Accounts и сессии |
+| `COOKIE_SECURE` | `false` | Флаг `Secure` у HttpOnly cookie `session_id` (`true` за HTTPS в prod) |
+
+Подробнее о переменных Phase 6–7:
+
+- **`AUTH_ENABLED`** — `true` (по умолчанию): регистрация/логин, cookie-сессии, отдельная user DB на пользователя. `false`: один пользователь из `USERNAME` / `DB_PATH` без логина (удобно для локальной отладки ingest/CLI).
+- **`USER_DB_ROOT`** — каталог, куда при регистрации кладутся `{username}.db`. Должен быть непустым; относительный путь нормализуется в абсолютный.
+- **`SYSTEM_DB_PATH`** — SQLite с таблицами `accounts` и `auth_sessions` (реестр пользователей и server-side сессии).
+- **`COOKIE_SECURE`** — `false` на localhost (HTTP); в production за reverse proxy с TLS установите `true`.
+
+Структура данных:
+
+| Файл | Содержимое |
+|------|------------|
+| `.data/db/system.db` | аккаунты, auth-сессии |
+| `.data/db/{username}.db` | документы, чанки, консультации, `user_profile` |
+
+### Аутентификация и профиль
+
+При `AUTH_ENABLED=true` (по умолчанию) API требует cookie-сессию после регистрации или входа. Профиль хранится в user DB; сессии, документы и чат доступны только после заполнения обязательных полей (`name`, `age`, `sex`, `date_of_birth`).
+
+**Регистрация и вход:**
+```bash
+curl -c cookies.txt -X POST http://localhost:8000/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username": "alice", "password": "password123"}'
+
+curl -b cookies.txt -X PATCH http://localhost:8000/api/v1/profile \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Alice","age":35,"sex":"F","date_of_birth":"1990-01-01","chronic_conditions":[],"current_medications":[],"allergies":[]}'
+```
 
 **Загрузить документ (Markdown):**
 ```bash
-curl -X POST http://localhost:8000/api/v1/documents -F "file=@document.md"
+curl -b cookies.txt -X POST http://localhost:8000/api/v1/documents -F "file=@document.md"
 ```
 
 **Создать сессию:**
 ```bash
-curl -X POST http://localhost:8000/api/v1/sessions \
+curl -b cookies.txt -X POST http://localhost:8000/api/v1/sessions \
   -H "Content-Type: application/json" -d '{"title": "Новая сессия"}'
 # -> {"session_id": "...", ...}
 ```
 
 **Отправить сообщение:**
 ```bash
-curl -X POST http://localhost:8000/api/v1/sessions/{session_id}/messages \
+curl -b cookies.txt -X POST http://localhost:8000/api/v1/sessions/{session_id}/messages \
   -H "Content-Type: application/json" -d '{"content": "Ваш вопрос"}'
 ```
 
 **Просмотреть историю сообщений:**
 ```bash
-curl http://localhost:8000/api/v1/sessions/{session_id}/messages
+curl -b cookies.txt http://localhost:8000/api/v1/sessions/{session_id}/messages
+```
+
+### Миграция пилота: `ingest.db` → `default.db` (Phase 6)
+
+Для окружений, где раньше использовалась одна БД `.data/db/ingest.db`:
+
+```bash
+# Остановите API перед миграцией
+uv run python scripts/migrate_pilot_to_default.py
+```
+
+Скрипт:
+
+1. Копирует `.data/db/ingest.db` → `.data/db/default.db` (пропускает, если `default.db` уже есть).
+2. Применяет актуальную схему (`user_profile` и др.).
+3. Заполняет `user_profile` из `config/patient.yaml`, если строки ещё нет.
+4. Переименовывает исходный файл в `ingest.db.bak`.
+
+После миграции для HTTP без auth (временно): `AUTH_ENABLED=false USERNAME=default`. Для Phase 7 включите `AUTH_ENABLED=true` и зарегистрируйте пользователей (см. ниже).
+
+CLI с per-user DB:
+
+```bash
+uv run ingest --username default --db .data/db/default.db path/to/doc.md
+uv run chat --username default --db .data/db/default.db
+```
+
+### Deploy Phase 7 (переход на multi-user auth)
+
+При первом включении auth в среде, где уже был пилотный `default.db`:
+
+1. **Сделайте backup** каталога `.data/db/` (`system.db`, `*.db`).
+2. **Удалите** `.data/db/default.db` (и при необходимости `system.db` — чистый старт аккаунтов).
+3. Запустите API с `AUTH_ENABLED=true`, `COOKIE_SECURE=true` (prod) или `false` (local HTTP).
+4. Каждый пользователь проходит **регистрацию** в UI (`/register`) или через API.
+5. **Заполните профиль** (`PATCH /api/v1/profile`) — без этого чат и документы недоступны.
+6. **Повторно загрузите документы** (re-ingest): старый `default.db` не привязан к новым аккаунтам.
+
+Историю консультаций из пилота переносить не нужно — только медицинские документы (Markdown) и профиль.
+
+Пример prod-переменных:
+
+```bash
+export AUTH_ENABLED=true
+export COOKIE_SECURE=true
+export CORS_ORIGINS=https://adviser.example.com
+export USER_DB_ROOT=/var/lib/fsm/db
+export SYSTEM_DB_PATH=/var/lib/fsm/db/system.db
 ```
 
 ### Все эндпоинты
@@ -154,7 +240,12 @@ curl http://localhost:8000/api/v1/sessions/{session_id}/messages
 | Метод | Путь | Описание |
 |-------|------|----------|
 | GET | /health | Проверка состояния |
+| POST | /api/v1/auth/register | Регистрация |
+| POST | /api/v1/auth/login | Вход |
+| POST | /api/v1/auth/logout | Выход |
+| GET | /api/v1/auth/me | Текущий пользователь |
 | GET | /api/v1/profile | Профиль пациента |
+| PATCH | /api/v1/profile | Обновить профиль |
 | GET | /api/v1/sessions | Список сессий |
 | POST | /api/v1/sessions | Создать сессию |
 | GET | /api/v1/sessions/{id} | Получить сессию |

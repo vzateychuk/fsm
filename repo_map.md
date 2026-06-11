@@ -52,6 +52,7 @@
 | typer             | >=0.12,<1    | CLI entrypoints                |
 | markdown-it-py    | >=3.0,<4     | Markdown parsing                |
 | PyYAML            | >=6.0,<7     | YAML config loading             |
+| argon2-cffi       | >=23.1,<26   | Password hashing (auth)           |
 
 *(Top production deps from pyproject.toml [project.dependencies].)*
 
@@ -64,12 +65,17 @@
 | HOST             | no       | Uvicorn bind host                    |
 | PORT             | no       | Uvicorn bind port                    |
 | RELOAD           | no       | Uvicorn autoreload flag              |
-| DB_PATH          | no       | SQLite database path                 |
+| AUTH_ENABLED     | no       | `false` = single-user mode (USERNAME) |
+| USERNAME         | no       | User slug when AUTH_ENABLED=false    |
+| DB_PATH          | no       | User SQLite path (single-user mode)  |
+| USER_DB_ROOT     | no       | Directory for per-user DB files      |
+| SYSTEM_DB_PATH   | no       | Accounts/sessions system DB          |
+| COOKIE_SECURE    | no       | Secure flag on session cookie        |
 | CORS_ORIGINS     | no       | Allowed browser origins              |
 | LOG_FILE         | no       | Optional log file path               |
 | NVIDIA_API_KEY   | no       | NVIDIA LLM API key (for config/llm-nvidia.yaml) |
 
-*(Adaptive max: 12. Key names only from src/api/main.py, src/api/factory.py.)*
+*(From src/api/main.py, src/api/user_resolver.py, src/api/user_db_paths.py, src/api/cookies.py.)*
 
 ---
 
@@ -82,6 +88,7 @@
 | cli               | src/main/chat.py         | Chat REPL CLI              |
 | cli               | src/main/ingest.py       | Ingest pipeline CLI        |
 | script            | src/main/consult.py      | Consult pipeline runner     |
+| script            | scripts/migrate_pilot_to_default.py | Pilot DB migration |
 
 ---
 
@@ -89,9 +96,10 @@
 
 ```
 src/
-  api/          routers/, app.py, factory.py, config.py, middleware.py
+  api/          routers/, app.py, factory.py, deps.py, user_context.py,
+                user_resolver.py, user_db_paths.py, schema_init.py, cookies.py
   chat/         agentic_loop.py, tool_executor.py, baseline_retriever.py
-  common/      utils/parsers/, logging_config.py, patient.py
+  common/      utils/parsers/, logging_config.py, patient.py, username.py
   fsm/         core.py, saga.py, saga_runner.py, models.py
   llm/         openai_client.py, retry_client.py, config.py
   main/        chat.py, ingest.py, consult.py, retrieve.py
@@ -99,8 +107,8 @@ src/
     consult/   runner.py, steps/call_llm.py, format_response.py, ...
     ingest/    steps/ (10 steps), models.py, config.py
     retrieval/ runner.py, steps/search_chunks.py, classify_intent.py, ...
-  services/    chat.py, documents.py, sessions.py, profile.py, errors.py
-  store/       sql/sql_store.py, sqlite_internal_store.py, models.py
+  services/    chat.py, documents.py, sessions.py, profile.py, auth.py, errors.py
+  store/       sql/sqlite_internal_store.py, sqlite_system_store.py, schema.sql, system_schema.sql
 config/        api.yaml, llm.yaml, chat.yaml, retrieve.yaml, patient.yaml
 frontend/src/  app/, features/chat, documents, profile, layout/, core/
 prompts/       chat/system.md, user.md
@@ -122,9 +130,12 @@ tests/         consult/, ingest/, parsers/, retrieval/, store/, fixtures/
 | pipelines.ingest     | src/pipelines/ingest   | 10-step document ingestion       | BUSINESS_LOGIC |
 | pipelines.retrieval  | src/pipelines/retrieval | BM25+FTS retrieval flow          | BUSINESS_LOGIC |
 | services            | src/services            | App service layer                | BUSINESS_LOGIC |
+| services.auth       | src/services/auth.py    | Registration, login, sessions    | BUSINESS_LOGIC |
+| api.auth            | src/api/user_resolver.py| HTTP user resolution + deps      | API_CHANGES    |
 | store               | src/store               | Internal and knowledge storage   | INFRA          |
 | common              | src/common              | Shared utilities, parsers, logging| DEV_TOOLING    |
-| frontend            | frontend                | React 19 SPA with TanStack Query | FRONTEND       |
+| frontend            | frontend                | React 19 SPA, auth guards        | FRONTEND       |
+| frontend.auth         | frontend/src/features/auth | Login, register, authErrors   | FRONTEND       |
 | config              | config                  | YAML runtime settings             | CONFIG         |
 | prompts             | prompts                 | Prompt templates                 | CONFIG         |
 | tests               | tests                   | Automated test suite             | TESTS          |
@@ -139,9 +150,11 @@ tests/         consult/, ingest/, parsers/, retrieval/, store/, fixtures/
 | 1    | client                  | CORS middleware          | Set allowed origins         | src/api/app.py          |
 | 2    | CORS middleware         | RequestIDMiddleware      | Inject X-Request-ID header  | src/api/middleware.py   |
 | 3    | RequestIDMiddleware     | Router                   | Route to handler            | src/api/app.py          |
-| 4    | Router                  | SessionService/ChatService| Execute business logic      | src/api/routers/*.py    |
-| 5    | Service                 | KnowledgeStore/InternalStore| Read/write SQLite         | src/store/sql/*.py      |
-| 6    | Service                 | client                   | Return JSON response        | FastAPI automatic        |
+| 4    | Router                  | resolve_user_context     | Cookie → session → user DB  | src/api/user_resolver.py|
+| 5    | Router                  | require_complete_profile | 403 if profile incomplete   | src/api/deps.py         |
+| 6    | Router                  | SessionService/ChatService| Execute business logic      | src/api/routers/*.py    |
+| 7    | Service                 | SqliteInternalStore / SystemStore | Per-user + system SQLite | src/store/sql/*.py      |
+| 8    | Service                 | client                   | Return JSON response        | FastAPI automatic        |
 
 ---
 
@@ -150,7 +163,8 @@ tests/         consult/, ingest/, parsers/, retrieval/, store/, fixtures/
 | ROUTE_GROUP | PATH_PREFIX            | PURPOSE                        |
 |-------------|------------------------|--------------------------------|
 | health      | /health                | Health check                   |
-| profile     | /api/v1/profile        | Read-only patient profile      |
+| auth        | /api/v1/auth           | Register, login, logout, me    |
+| profile     | /api/v1/profile        | Patient profile GET/PATCH      |
 | sessions    | /api/v1/sessions       | Session CRUD + messages        |
 | chat        | /api/v1/sessions/{id}/messages | Send/receive messages |
 | documents   | /api/v1/documents      | Document upload and listing    |
@@ -174,6 +188,7 @@ tests/         consult/, ingest/, parsers/, retrieval/, store/, fixtures/
 | FEATURE   | ROUTE                     | HANDLER          | SERVICE          | MODEL          |
 |-----------|---------------------------|------------------|------------------|----------------|
 | health    | GET /health               | health router    | -                | -              |
+| auth      | POST /api/v1/auth/*       | auth router      | AuthService      | AccountRecord  |
 | profile   | GET /api/v1/profile       | profile router   | ProfileService   | PatientInfo    |
 | sessions  | /api/v1/sessions          | sessions router  | SessionsService  | SessionRecord  |
 | chat      | POST /api/v1/sessions/{id}/messages | chat router | ChatService | MessageRecord  |
@@ -190,7 +205,9 @@ tests/         consult/, ingest/, parsers/, retrieval/, store/, fixtures/
 | Document        | Indexed markdown document metadata          |
 | Chunk           | Document text chunk with heading/section   |
 | SagaProgress    | Saga checkpoint (run_id, cursor, state)    |
-| PatientInfo     | Patient demographics from config/patient.yaml |
+| PatientInfo     | Patient demographics (user DB user_profile) |
+| AccountRecord   | Registered user + db_path in system DB       |
+| AuthSessionRecord | HttpOnly session in system DB              |
 | IngestData      | Ingest pipeline context (10 fields)        |
 | IngestInput     | Ingest pipeline input                      |
 
@@ -206,7 +223,16 @@ tests/         consult/, ingest/, parsers/, retrieval/, store/, fixtures/
 | frontend/package.json      | Frontend deps and scripts                 | frontend                     |
 | src/api/main.py            | Uvicorn entry point                       | api                          |
 | src/api/app.py             | FastAPI app factory with CORS/exception   | api, services                |
-| src/api/factory.py         | AppContext wiring (stores, LLM, services) | all services                 |
+| src/api/factory.py         | SharedContext + UserContextFactory        | all services                 |
+| src/api/user_context.py    | Per-user service bundle (UserContext)     | api, services                |
+| src/api/user_resolver.py   | Cookie/session → UserContext (HTTP)       | api, services/auth           |
+| src/api/user_db_paths.py   | USER_DB_ROOT, DB_PATH resolution          | api                          |
+| src/api/schema_init.py     | Idempotent user/system schema bootstrap   | store                        |
+| src/api/cookies.py           | session_id cookie (Secure, HttpOnly)      | api/routers/auth             |
+| src/api/deps.py            | get_user_context, require_complete_profile| api                          |
+| src/services/auth.py       | Register, login, session rotation         | store/sqlite_system_store    |
+| src/store/sql/sqlite_system_store.py | accounts + auth_sessions in system.db | store, auth          |
+| src/api/routers/auth.py    | /api/v1/auth/* endpoints                  | services/auth                |
 | src/api/routers/*.py       | HTTP route handlers                       | services                     |
 | src/services/chat.py       | Agentic chat orchestration                | chat, llm, store             |
 | src/fsm/core.py            | Saga run context and step protocol        | pipelines                    |
@@ -235,4 +261,4 @@ tests/         consult/, ingest/, parsers/, retrieval/, store/, fixtures/
 
 ---
 
-<!-- Generated: 2026-06-11 -->
+<!-- Updated: 2026-06-11 (Phase 6–7 auth, per-user DB) -->

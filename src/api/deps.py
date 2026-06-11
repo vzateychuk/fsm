@@ -1,39 +1,73 @@
-"""FastAPI dependency injection helpers.
+"""FastAPI dependency injection helpers."""
 
-All functions here extract application services from app.state.ctx,
-which is populated during lifespan startup by create_app_context().
-"""
 from __future__ import annotations
 
-from fastapi import Request
+from fastapi import Depends, Request
 
 from src.api.config import ApiConfig
+from src.api.user_context import SharedContext, UserContext
+from src.api.user_resolver import resolve_user_context
 from src.services.chat import ChatService
 from src.services.documents import DocumentsService
+from src.services.errors import ProfileIncompleteError
 from src.services.ingest import IngestService
 from src.services.profile import ProfileService
 from src.services.sessions import SessionsService
 
 
-def get_sessions_service(request: Request) -> SessionsService:
-    return request.app.state.ctx.sessions_service  # type: ignore[no-any-return]
+def get_shared_context(request: Request) -> SharedContext:
+    return request.app.state.shared_ctx  # type: ignore[no-any-return]
 
 
-def get_profile_service(request: Request) -> ProfileService:
-    return request.app.state.ctx.profile_service  # type: ignore[no-any-return]
+async def get_user_context(
+    user_ctx: UserContext = Depends(resolve_user_context),
+) -> UserContext:
+    return user_ctx
 
 
-def get_documents_service(request: Request) -> DocumentsService:
-    return request.app.state.ctx.documents_service  # type: ignore[no-any-return]
+async def require_complete_profile(
+    user_ctx: UserContext = Depends(get_user_context),
+) -> UserContext:
+    """Require authenticated user with a complete profile.
+
+    UnauthorizedError from get_user_context propagates to the global
+    AppError exception handler (401 unauthorized) — not caught here.
+    """
+    profile = await user_ctx.profile_service.get_profile()
+    if not ProfileService.is_complete(profile):
+        raise ProfileIncompleteError("Complete your profile before using this feature.")
+    return user_ctx
 
 
-def get_ingest_service(request: Request) -> IngestService:
-    return request.app.state.ctx.ingest_service  # type: ignore[no-any-return]
+def get_sessions_service(
+    user_ctx: UserContext = Depends(require_complete_profile),
+) -> SessionsService:
+    return user_ctx.sessions_service
 
 
-def get_chat_service(request: Request) -> ChatService:
-    return request.app.state.ctx.chat_service  # type: ignore[no-any-return]
+def get_profile_service(
+    user_ctx: UserContext = Depends(get_user_context),
+) -> ProfileService:
+    return user_ctx.profile_service
+
+
+def get_documents_service(
+    user_ctx: UserContext = Depends(require_complete_profile),
+) -> DocumentsService:
+    return user_ctx.documents_service
+
+
+def get_ingest_service(
+    user_ctx: UserContext = Depends(require_complete_profile),
+) -> IngestService:
+    return user_ctx.ingest_service
+
+
+def get_chat_service(
+    user_ctx: UserContext = Depends(require_complete_profile),
+) -> ChatService:
+    return user_ctx.chat_service
 
 
 def get_api_config(request: Request) -> ApiConfig:
-    return request.app.state.ctx.api_config  # type: ignore[no-any-return]
+    return request.app.state.shared_ctx.api_config  # type: ignore[no-any-return]

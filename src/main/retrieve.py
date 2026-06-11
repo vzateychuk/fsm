@@ -21,7 +21,7 @@ async def main():
     setup_logging(level=logging.DEBUG, log_file=None)
     logger = logging.getLogger(__name__)
 
-    db_path = os.getenv("DB_PATH", ".data/db/ingest.db")
+    db_path = os.getenv("DB_PATH", ".data/db/default.db")
     query = sys.argv[1] if len(sys.argv) > 1 else "анализ"
     category = sys.argv[2] if len(sys.argv) > 2 else None
 

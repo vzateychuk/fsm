@@ -65,3 +65,14 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_session_seq
     ON messages(session_id, seq);
+
+CREATE TABLE IF NOT EXISTS user_profile (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    name TEXT NOT NULL DEFAULT '',
+    age INTEGER NOT NULL DEFAULT 0,
+    sex TEXT NOT NULL DEFAULT '',
+    date_of_birth TEXT NOT NULL DEFAULT '',
+    chronic_conditions_json TEXT NOT NULL DEFAULT '[]',
+    current_medications_json TEXT NOT NULL DEFAULT '[]',
+    allergies_json TEXT NOT NULL DEFAULT '[]'
+);

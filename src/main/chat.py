@@ -115,11 +115,19 @@ async def _run_chat(session_id: str | None, ctx: AppContext) -> None:
 @app.command()
 def chat(
     session_id: str | None = typer.Option(None, "--session", help="Session ID to resume"),  # noqa: B008
+    username: str = typer.Option("default", "--username", help="Logical user name"),  # noqa: B008
+    db: Path | None = typer.Option(None, "--db", help="Path to SQLite user DB"),  # noqa: B008
     debug: bool = typer.Option(False, "--debug", help="Enable DEBUG-level logging."),  # noqa: B008
     pkg_debug: bool = typer.Option(False, "--pkg-debug", help="Enable DEBUG-level logging for project packages only."),  # noqa: B008
     log_file: Path | None = typer.Option(None, "--log-file", help="Write logs to file."),  # noqa: B008
 ) -> None:
     """Agentic medical consultation: interactive REPL with KB tool access."""
+    import os
+
+    db_path = db.resolve() if db else Path(f".data/db/{username}.db").resolve()
+    os.environ["USERNAME"] = username
+    os.environ["DB_PATH"] = str(db_path)
+
     setup_logging(
         level=logging.DEBUG if debug else logging.INFO,
         log_file=str(log_file) if log_file else None,

@@ -57,3 +57,45 @@ class InternalError(AppError):
 
     code = "internal_error"
     http_status = 500
+
+
+class UnauthorizedError(AppError):
+    """Missing or invalid authentication."""
+
+    code = "unauthorized"
+    http_status = 401
+
+
+class InvalidCredentialsError(AppError):
+    """Wrong username or password."""
+
+    code = "invalid_credentials"
+    http_status = 401
+
+
+class UsernameTakenError(AppError):
+    """Registration username already exists."""
+
+    code = "username_taken"
+    http_status = 409
+
+
+class UsernameReservedError(AppError):
+    """Registration username is reserved."""
+
+    code = "username_reserved"
+    http_status = 409
+
+
+class ProfileIncompleteError(AppError):
+    """Profile must be completed before this action."""
+
+    code = "profile_incomplete"
+    http_status = 403
+
+
+class ValidationError(AppError):
+    """Input validation failed."""
+
+    code = "validation_error"
+    http_status = 422

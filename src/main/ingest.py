@@ -24,7 +24,8 @@ app = typer.Typer(add_completion=False)
 @app.command()
 def ingest(
     file: Path = typer.Argument(..., help="Path to the .md file to ingest"),  # noqa: B008
-    db: Path = typer.Option(Path(".data/db/ingest.db"), "--db", help="Path to SQLite DB"),  # noqa: B008
+    username: str = typer.Option("default", "--username", help="Logical user name"),  # noqa: B008
+    db: Path | None = typer.Option(None, "--db", help="Path to SQLite user DB"),  # noqa: B008
 ) -> None:
     """Ingest a single markdown document into the knowledge base pipeline.
 
@@ -33,7 +34,7 @@ def ingest(
         uv run advisor .data/ingest/some_doc.md --db ./data/custom.db
     """
     file = file.resolve()
-    db = db.resolve()
+    db_path = db.resolve() if db else Path(f".data/db/{username}.db").resolve()
     filename = sanitize_upload_filename(file.name)
 
     log_file = Path("logs/ingest.log")
@@ -45,7 +46,8 @@ def ingest(
         logger.error("Document file not found: %s", file)
         sys.exit(1)
 
-    os.environ["DB_PATH"] = str(db)
+    os.environ["USERNAME"] = username
+    os.environ["DB_PATH"] = str(db_path)
 
     content = file.read_text(encoding="utf-8")
     logger.info("Ingesting file: %s filename=%s (%d chars)", file, filename, len(content))

@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import aiosqlite
 
+from src.common.patient import PatientInfo
 from src.llm.models import Message, ToolCall
 from src.store.models import MessageRecord, SessionRecord
 
@@ -232,3 +233,56 @@ class SqliteInternalStore:
                 content=row[3],
                 created_at=row[4],
             )
+
+    async def get_user_profile(self) -> PatientInfo | None:
+        """Load singleton user profile row (id=1), or None if missing."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                """
+                SELECT name, age, sex, date_of_birth,
+                       chronic_conditions_json, current_medications_json, allergies_json
+                FROM user_profile WHERE id = 1
+                """
+            )
+            row = await cursor.fetchone()
+            if row is None:
+                return None
+            return PatientInfo(
+                name=row[0],
+                age=row[1],
+                sex=row[2],
+                date_of_birth=row[3],
+                chronic_conditions=json.loads(row[4]),
+                current_medications=json.loads(row[5]),
+                allergies=json.loads(row[6]),
+            )
+
+    async def upsert_user_profile(self, profile: PatientInfo) -> None:
+        """Insert or replace singleton user profile row."""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO user_profile (
+                    id, name, age, sex, date_of_birth,
+                    chronic_conditions_json, current_medications_json, allergies_json
+                ) VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    age = excluded.age,
+                    sex = excluded.sex,
+                    date_of_birth = excluded.date_of_birth,
+                    chronic_conditions_json = excluded.chronic_conditions_json,
+                    current_medications_json = excluded.current_medications_json,
+                    allergies_json = excluded.allergies_json
+                """,
+                (
+                    profile.name,
+                    profile.age,
+                    profile.sex,
+                    profile.date_of_birth,
+                    json.dumps(profile.chronic_conditions),
+                    json.dumps(profile.current_medications),
+                    json.dumps(profile.allergies),
+                ),
+            )
+            await db.commit()
