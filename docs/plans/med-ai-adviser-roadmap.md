@@ -4,7 +4,13 @@
 
 **Вне продуктовых фаз:** one-shot CLI `consult` — dev/smoke-инструмент для проверки KB + промптов + одного вызова LLM, без agentic-цикла и без UI. Не блокирует и не дублирует фазы roadmap.
 
-**Отклонения от порядка разделов в concept:** до Phase 6 используется одна SQLite и один профиль (пилот на одном пользователе); [§3.1](см. 31-изоляция-данных-одна-sqlite-на-пользователя) и [§7](см. 7-регистрация-и-управление-учётной-записью) внедряются в Phase 6–7. Веб ([§6](см. 6-пользовательский-интерфейс-фронтэнд)) — до auth, без публичной регистрации.
+**Отклонения от порядка разделов в concept:** до Phase 6 использовалась одна SQLite и один профиль (пилот на одном пользователе); [§3.1](см. 31-изоляция-данных-одна-sqlite-на-пользователя) и [§7](см. 7-регистрация-и-управление-учётной-записью) внедряются в Phase 6–7. Веб ([§6](см. 6-пользовательский-интерфейс-фронтэнд)) — до Phase 7 без auth и без регистрации.
+
+**Отклонение от concept §7:** на текущем этапе учётная запись — **`username` + пароль** (не email). Email и восстановление пароля — post-Phase 7 / Phase 9. Детали: [phase6-7-impl-plan.md](phase6-7-impl-plan.md).
+
+**Стратегия Phase 6–7:** Variant A — thin Phase 6 (data layer + migration + isolation tests), затем Phase 7 (auth, UI, profile blocker). План: [phase6-7-impl-plan.md](phase6-7-impl-plan.md).
+
+**Порядок относительно Phase 5:** Operations (Docker, deploy в закрытом контуре) **перенесены после Phase 6–7**. Сначала multi-user data layer и auth; затем упаковка и эксплуатационный deploy. Phase 5 в таблице ниже сохраняет номер из концепции §8, но **не блокирует** Phase 6.
 
 ---
 
@@ -14,11 +20,11 @@
 |-------|----------|-----------|--------|------------|
 | 0 | KB Foundation | §2.1, §2.2, §3.2 | **Готово** | — |
 | 1 | Chat Engine (CLI) | §1, §2.3 | **Готово** | 0 |
-| 2 | Persistent Sessions | §3.4, §4 | План | 1 |
-| 3 | Context & Compression | §5 | План | 2 |
-| 4 | Web Product (single-user) | §6 (без §7) | План | 1–3 |
-| 5 | Operations (private pilot) | §8 | План | 4 |
-| 6 | Per-User Data | §3.1, §3.3 | План | 2, 5 |
+| 2 | Persistent Sessions | §3.4, §4 | **Готово** | 1 |
+| 3 | Context & Compression | §5 | **Готово** | 2 |
+| 4 | Web Product (single-user) | §6 (без §7) | **Готово** | 1–3 |
+| 5 | Operations (private pilot) | §8 | План | 7 |
+| 6 | Per-User Data | §3.1, §3.3 | План | 2, 4 |
 | 7 | Auth & Accounts | §7 | План | 6 |
 | 8 | Large KB & Document Index | §2.3 (рост KB) | План | 1, 6–7 |
 | 9 | Internet access / Rollout | §8.3 | План | 7 |
@@ -95,6 +101,8 @@
 
 **Зависимости:** Phase 1.
 
+**Статус:** реализовано.
+
 ---
 
 ## Phase 3 — Context & Compression
@@ -117,6 +125,8 @@
 
 **Зависимости:** Phase 2.
 
+**Статус:** реализовано.
+
 ---
 
 ## Phase 4 — Web Product (single-user)
@@ -131,7 +141,7 @@
 1. Диалоговый чат с Markdown-рендером — [§2.3](см. 23-chat-консультация--агентный-диалог). Синхронный request/response в Phase 4; streaming перенесён в post-Phase 4 (см. ниже).
 2. Управление сессиями (список, новая, переименование, archive, delete) — [§4](см. 4-управление-сессиями-memory).
 3. Загрузка **текстовых** документов (Markdown) в KB + статус индексации — [§2.1](см. 21-ingestion-индексация-документов).
-4. Профиль единственного пользователя (редактирование; до Phase 6 — статический или единая запись в общей БД).
+4. Профиль единственного пользователя (read-only из конфига; редактирование — Phase 7 после auth).
 
 **Не в scope Phase 4:**
 - регистрация/вход, изоляция per-user SQLite, загрузка изображений/сканов (→ Phase 10 optional);
@@ -143,6 +153,10 @@
 
 **Зависимости:** Phase 1–3.
 
+**Детальный план реализации:** [phase4-impl-plan.md](phase4-impl-plan.md).
+
+**Статус:** реализовано (REST API, React UI, single-user pilot).
+
 ---
 
 ## Phase 5 — Operations (private pilot)
@@ -152,21 +166,23 @@
 [§8.2](см. 82-логирование), 
 [§8.3](см. 83-деплой-и-доступ-из-интернета) (ограниченно).
 
-**Цель:** развёрнуть приложение для **тестирования одним пользователем** в закрытом контуре.
+**Цель:** развёрнуть **multi-user** приложение (после Phase 6–7) для тестирования в **закрытом контуре** — Docker, volumes, логи, reverse proxy.
 
 **Scope:**
-- Docker, volume для данных (KB, сессии).
+- Docker Compose (или аналог): backend + frontend + volume `.data/db/` (`system.db`, `{username}.db`).
 - Логи: файл, ротация, stdout в контейнере — [§8.2](см. 82-логирование).
-- Deploy за reverse proxy; **не** публичный open internet без auth (это Phase 9).
-- Допустимо: localhost, VPN, IP allowlist, basic auth на прокси.
+- Deploy за reverse proxy; **не** публичный open internet (это Phase 9).
+- Закрытый контур: VPN, IP allowlist; опционально basic auth на прокси **в дополнение** к app auth Phase 7.
+- Env и runbook: `COOKIE_SECURE`, backup `.data/db/`, обновления без потери user DB.
 
 **Критерий выхода:**
-- Одна команда поднимает стек; данные переживают перезапуск; пилотный пользователь стабильно работает в веб-UI.
+- Одна команда поднимает стек; данные переживают перезапуск; пользователи регистрируются, входят и работают в веб-UI изолированно.
 
-**Зависимости:** Phase 4.
+**Зависимости:** Phase 7 (auth + per-user data). Phase 4 — UI/API уже есть.
 
-**Не путать с Phase 9:** здесь нет onboarding множества пользователей и нет обязательного 
-[§7](см. 7-регистрация-и-управление-учётной-записью).
+**Не путать с Phase 9:** закрытый пилот с несколькими пользователями, не публичный rollout.
+
+**Статус:** не начата; выполняется **после** Phase 6–7 (см. порядок работ ниже).
 
 ---
 
@@ -176,36 +192,59 @@
 [§3.1](см. 31-изоляция-данных-одна-sqlite-на-пользователя), 
 [§3.3](см. 33-профиль-пользователя).
 
-**Цель:** физическая изоляция KB, сессий и профиля между пользователями.
+**Детальный план реализации:** [phase6-7-impl-plan.md](phase6-7-impl-plan.md) (§5).
+
+**Цель:** физическая изоляция KB, сессий и профиля между пользователями (thin phase: data layer без auth).
 
 **Scope:**
-- Отдельный файл SQLite на пользователя (KB + chat sessions + profile).
-- Роутинг ingest/chat/retrieval по идентификатору пользователя.
-- Профиль в БД пользователя (миграция с пилотного single-user режима).
+- Отдельный файл SQLite на пользователя (KB + chat sessions + `user_profile`).
+- `UserContext` + resolver: env `USERNAME` / `DB_PATH` (pilot: `default`, `.data/db/default.db`); LRU-кэш per-user services.
+- Профиль в user DB (не в `config/patient.yaml`); `ChatService` читает профиль динамически.
+- One-shot миграция: `ingest.db` → `default.db` + seed из `patient.yaml`.
+- CLI: `--username` + `--db`; isolation tests (dev/CI only).
+- **`system.db` и auth — не в Phase 6.** Web UI без изменений (implicit `default`).
+
+**Не в scope Phase 6:**
+- login/register, `system.db`, frontend, multi-user UI;
+- выбор пользователем пути к БД (флешка) — post-Phase 7; задел через `accounts.db_path`.
 
 **Критерий выхода:**
-- Два пользователя не видят документы и чаты друг друга.
-- Ingest и chat работают в контексте выбранного пользователя.
+- Два user DB (CLI/tests) не видят документы и чаты друг друга.
+- Ingest и chat/API работают в контексте выбранного user DB.
+- Pilot после migration: один implicit user `default`.
 
-**Зависимости:** Phase 2 (схемы сессий в per-user DB), Phase 5 (пилот подтвердил стабильность).
+**Зависимости:** Phase 2 (схемы сессий в per-user DB), Phase 4 (веб/API для thin pilot). Phase 5 **не** блокирует Phase 6.
 
 ---
 
 ## Phase 7 — Auth & Accounts
 
 **Концепция:** 
-[§7](см. 7-регистрация-и-управление-учётной-записью).
+[§7](см. 7-регистрация-и-управление-учётной-записью) — с отклонением: **username + пароль**, не email.
 
-**Цель:** регистрация, вход, привязка запросов к учётной записи и её SQLite.
+**Детальный план реализации:** [phase6-7-impl-plan.md](phase6-7-impl-plan.md) (§6).
+
+**Цель:** регистрация, вход, привязка запросов к учётной записи и её SQLite; единая модель для всех пользователей.
 
 **Scope:**
-- Email + пароль; создание user DB при регистрации — [§3.1](см. 31-изоляция-данных-одна-sqlite-на-пользователя).
-- Сессии приложения с ограниченным сроком жизни.
-- Регистрация и вход в веб-UI — [§6](см. 6-пользовательский-интерфейс-фронтэнд).
-- Редактирование профиля — [§3.3](см. 33-профиль-пользователя).
+- **`system.db`** (`.data/db/system.db`): `accounts(username, password_hash, db_path, created_at)`, `auth_sessions`.
+- **Username + пароль** (argon2id, min 8); open registration (на dev — localhost; **сетевой** deploy и VPN/allowlist — Phase 5).
+- Server-side session (HttpOnly cookie); **без idle-timeout** — сессия до явного logout.
+- При register: `db_path = .data/db/{username}.db`, пустой профиль; auto-login.
+- Protected API: `/api/v1/*` только с cookie; публично — health + `/api/v1/auth/*`.
+- **Profile blocker:** chat/documents/sessions недоступны, пока профиль не заполнен (`name`, `age`, `sex`, `date_of_birth`).
+- `PATCH /api/v1/profile`; login/register в веб-UI — [§6](см. 6-пользовательский-интерфейс-фронтэнд).
+
+**Deploy (breaking):** pilot `default.db` удаляется; пользователи создаются через Register; документы re-ingest. Runbook: [phase6-7-impl-plan.md](phase6-7-impl-plan.md) §6.
+
+**Не в scope Phase 7:**
+- email, password recovery;
+- user-chosen `db_path` (UI переноса БД);
+- rate limiting (→ Phase 9).
 
 **Критерий выхода:**
-- Новый пользователь регистрируется → получает изолированную БД → загружает документы и ведёт чат.
+- Register → isolated user DB → заполнение профиля → upload + chat.
+- Пользователи не видят чужие данные; logout отзывает сессию.
 
 **Зависимости:** Phase 6.
 
@@ -238,13 +277,13 @@
 
 **Scope:**
 - TLS, публичный endpoint, rate limit, security headers.
-- Onboarding через [§7](см. 7-регистрация-и-управление-учётной-записью) — **обязателен** перед открытием доступа.
+- Onboarding через [§7](см. 7-регистрация-и-управление-учётной-записью) (username + пароль; email — опционально позже) — **обязателен** перед открытием доступа.
 - Мониторинг и эксплуатация production-like.
 
 **Критерий выхода:**
 - Внешние пользователи регистрируются и работают изолированно; нет доступа к чужим данным.
 
-**Зависимости:** Phase 7 (и Phase 6). Phase 5 — только закрытый пилот, не замена Phase 9.
+**Зависимости:** Phase 7 (и Phase 6). Phase 5 — закрытый multi-user deploy, не замена Phase 9.
 
 ---
 
@@ -274,12 +313,14 @@
 
 ## Рекомендуемый порядок работ
 
-1. Закрыть Phase 1 (hardening `chat`).
-2. Phase 2 → Phase 3.
-3. Phase 4 (веб, single-user, markdown upload).
-4. Phase 5 (private pilot).
-5. Phase 10 — по необходимости, параллельно с 4–5.
-6. Phase 6 → Phase 7.
+**Текущая позиция:** Phases 0–4 закрыты; Phase 5 **не** закрыта. Следующий шаг — **Phase 6 (thin) → Phase 7 → Phase 5**.
+
+1. ~~Закрыть Phase 1 (hardening `chat`) — по необходимости.~~
+2. ~~Phase 2 → Phase 3.~~
+3. ~~Phase 4 (веб, single-user, markdown upload).~~
+4. **Phase 6 (thin) → Phase 7** — см. [phase6-7-impl-plan.md](phase6-7-impl-plan.md).
+5. **Phase 5** (Docker, deploy multi-user в закрытом контуре).
+6. Phase 10 — по необходимости, параллельно с 4–7.
 7. Phase 8 — по мере роста KB.
 8. Phase 9 — публичный rollout.
 

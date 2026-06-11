@@ -1,181 +1,238 @@
 ## PROJECT
 
-| FIELD        | VALUE |
-|--------------|-------|
-| name         | fsm |
-| type         | application |
-| architecture | pipeline-driven FastAPI + CLI + SQLite |
-| languages    | Python 3.13 |
-| frameworks   | FastAPI, Typer, Pydantic, Uvicorn, aiosqlite |
-| build        | uv + setuptools |
+| FIELD        | VALUE                                                              |
+|--------------|--------------------------------------------------------------------|
+| name         | fsm                                                               |
+| type         | application                                                       |
+| architecture | layered + pipeline-driven (FastAPI + CLI + SQLite)                |
+| languages    | Python 3.13, TypeScript                                           |
+| frameworks   | FastAPI, Uvicorn, Pydantic, Typer (backend); React 19, Vite (UI) |
+| build        | uv + setuptools (backend); npm (frontend)                          |
 
 ---
 
 ## COMMANDS
 
-| TASK   | COMMAND | NOTES |
-|--------|---------|-------|
-| serve  | `uv run serve` | HTTP API server |
-| advisor | `uv run advisor <file.md>` | Ingest markdown |
-| chat   | `uv run chat` | Interactive chat REPL |
+| TASK   | COMMAND              | NOTES                            |
+|--------|----------------------|----------------------------------|
+| serve  | `uv run serve`       | HTTP API server                  |
+| advisor| `uv run advisor`     | Consult pipeline CLI             |
+| chat   | `uv run chat`        | Interactive consultation REPL     |
+| build  | `npm run build`      | Frontend production build        |
+| dev    | `npm run dev`        | Frontend dev server              |
+| check  | `npm run check`      | Frontend: gen API + typecheck    |
+| test   | `pytest`             | Backend test suite               |
 
----
-
-## STRUCTURE (depth=2)
-
-config/
-docs/
-prompts/
-scripts/
-src/
-  api/
-    routers/
-  chat/
-  common/
-    utils/
-  fsm/
-  llm/
-  main/
-  pipelines/
-    consult/
-    ingest/
-    retrieval/
-  services/
-  store/
-    file/
-    inmem/
-    sql/
-tests/
-  consult/
-  fixtures/
-  ingest/
-  parsers/
-  retrieval/
-  store/
+*(From pyproject.toml [project.scripts] and frontend/package.json.)*
 
 ---
 
 ## RUNTIME
 
-| Component | Version |
-|-----------|---------|
-| Python | 3.13+ |
-| Package manager | uv |
-| Build backend | setuptools |
-| Web server | Uvicorn |
-| Database | SQLite |
+| REQUIREMENT | VERSION | NOTES                           |
+|-------------|---------|----------------------------------|
+| Python      | 3.13+   | from requires-python             |
+| SQLite      | -       | aiosqlite async driver           |
+| Node.js     | -       | frontend dev only                |
+| Web server  | Uvicorn | ASGI server                      |
+
+*(No Dockerfile or docker-compose. Python 3.13+ required. No hard runtime descriptor for Node.)*
 
 ---
 
-## ENTRYPOINTS
+## DEPENDENCIES
 
-| Type | File | Purpose |
-|------|------|---------|
-| server | `src/api/main.py` | Starts Uvicorn |
-| app | `src/api/app.py` | Module-level FastAPI app |
-| cli | `src/main/ingest.py` | Ingest pipeline runner |
-| cli | `src/main/consult.py` | Consultation pipeline runner |
-| cli | `src/main/chat.py` | Interactive consultation REPL |
-| script | `src/main/retrieve.py` | Retrieval debug runner |
+| PACKAGE           | VERSION      | PURPOSE                         |
+|-------------------|--------------|---------------------------------|
+| fastapi           | >=0.111,<1   | HTTP API framework              |
+| pydantic          | >=2.7,<3     | Typed models                    |
+| uvicorn[standard] | >=0.29,<1    | ASGI server                    |
+| aiosqlite         | >=0.20,<0.22 | Async SQLite access             |
+| openai            | >=1.30,<2    | OpenAI-compatible LLM client    |
+| typer             | >=0.12,<1    | CLI entrypoints                |
+| markdown-it-py    | >=3.0,<4     | Markdown parsing                |
+| PyYAML            | >=6.0,<7     | YAML config loading             |
 
----
-
-## MODULES
-
-| MODULE | PATH | PURPOSE | AI_TASK |
-|--------|------|---------|---------|
-| api | `src/api` | HTTP layer and routers | API_CHANGES |
-| chat | `src/chat` | Agentic chat orchestration | BUSINESS_LOGIC |
-| common | `src/common` | Shared parsers and utilities | DEV_TOOLING |
-| fsm | `src/fsm` | Generic saga execution core | BUSINESS_LOGIC |
-| llm | `src/llm` | Vendor-neutral LLM clients | INFRA |
-| main | `src/main` | CLI entrypoints | CLI_AUTOMATION |
-| pipelines.consult | `src/pipelines/consult` | Medical consultation flow | BUSINESS_LOGIC |
-| pipelines.ingest | `src/pipelines/ingest` | Markdown ingestion flow | BUSINESS_LOGIC |
-| pipelines.retrieval | `src/pipelines/retrieval` | BM25 retrieval flow | BUSINESS_LOGIC |
-| services | `src/services` | App service layer | BUSINESS_LOGIC |
-| store | `src/store` | Internal and knowledge storage | INFRA |
-| tests | `tests` | Automated test suite | TESTS |
-| config | `config` | YAML runtime settings | CONFIG |
-| docs | `docs` | Design and roadmap notes | DEV_TOOLING |
-| prompts | `prompts` | Prompt templates | CONFIG |
-| scripts | `scripts` | Shell helpers | CLI_AUTOMATION |
-
----
-
-## KEY_FILES
-
-| FILE | PURPOSE |
-|------|---------|
-| `pyproject.toml` | Dependencies, scripts, tooling |
-| `README.md` | Project overview and usage |
-| `src/api/main.py` | Uvicorn startup wrapper |
-| `src/api/app.py` | FastAPI app factory |
-| `src/api/factory.py` | Wires stores, LLM, services |
-| `src/llm/config.py` | Shared LLM config loader |
-| `src/store/sql/schema.sql` | SQLite schema bootstrap |
-| `src/main/ingest.py` | Markdown ingest CLI |
-| `src/main/consult.py` | Consult CLI |
-| `src/main/chat.py` | Chat REPL CLI |
-| `src/main/retrieve.py` | Retrieval debug script |
-| `config/llm.yaml` | Default LLM endpoint config |
-| `config/retrieve.yaml` | Retrieval tuning config |
-| `config/chat.yaml` | Chat loop tuning config |
-| `config/consult.yaml` | Consult pipeline tuning config |
-
----
-
-## DEPENDENCIES (top 8)
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| pydantic | `>=2.7,<3` | Typed models |
-| aiosqlite | `>=0.20.0,<0.22` | Async SQLite access |
-| markdown-it-py | `>=3.0,<4` | Markdown parsing |
-| PyYAML | `>=6.0,<7` | YAML config loading |
-| openai | `>=1.30,<2` | OpenAI-compatible client |
-| typer | `>=0.12,<1` | CLI entrypoints |
-| fastapi | `>=0.111,<1` | HTTP API framework |
-| uvicorn[standard] | `>=0.29,<1` | ASGI server |
+*(Top production deps from pyproject.toml [project.dependencies].)*
 
 ---
 
 ## ENV_CONFIG
 
-| Key | Required | Purpose |
-|-----|----------|---------|
-| `HOST` | no | Uvicorn bind host |
-| `PORT` | no | Uvicorn bind port |
-| `RELOAD` | no | Uvicorn autoreload flag |
-| `DB_PATH` | no | SQLite database path |
-| `CORS_ORIGINS` | no | Allowed browser origins |
-| `LOG_FILE` | no | Optional log file path |
-| `NVIDIA_API_KEY` | no | NVIDIA LLM API key |
+| KEY              | REQUIRED | PURPOSE                              |
+|------------------|----------|--------------------------------------|
+| HOST             | no       | Uvicorn bind host                    |
+| PORT             | no       | Uvicorn bind port                    |
+| RELOAD           | no       | Uvicorn autoreload flag              |
+| DB_PATH          | no       | SQLite database path                 |
+| CORS_ORIGINS     | no       | Allowed browser origins              |
+| LOG_FILE         | no       | Optional log file path               |
+| NVIDIA_API_KEY   | no       | NVIDIA LLM API key (for config/llm-nvidia.yaml) |
+
+*(Adaptive max: 12. Key names only from src/api/main.py, src/api/factory.py.)*
+
+---
+
+## ENTRYPOINTS
+
+| TYPE              | PATH                     | PURPOSE                    |
+|-------------------|--------------------------|----------------------------|
+| server            | src/api/main.py          | Uvicorn startup wrapper    |
+| app               | src/api/app.py           | Module-level FastAPI app   |
+| cli               | src/main/chat.py         | Chat REPL CLI              |
+| cli               | src/main/ingest.py       | Ingest pipeline CLI        |
+| script            | src/main/consult.py      | Consult pipeline runner     |
+
+---
+
+## STRUCTURE (depth=2)
+
+```
+src/
+  api/          routers/, app.py, factory.py, config.py, middleware.py
+  chat/         agentic_loop.py, tool_executor.py, baseline_retriever.py
+  common/      utils/parsers/, logging_config.py, patient.py
+  fsm/         core.py, saga.py, saga_runner.py, models.py
+  llm/         openai_client.py, retry_client.py, config.py
+  main/        chat.py, ingest.py, consult.py, retrieve.py
+  pipelines/
+    consult/   runner.py, steps/call_llm.py, format_response.py, ...
+    ingest/    steps/ (10 steps), models.py, config.py
+    retrieval/ runner.py, steps/search_chunks.py, classify_intent.py, ...
+  services/    chat.py, documents.py, sessions.py, profile.py, errors.py
+  store/       sql/sql_store.py, sqlite_internal_store.py, models.py
+config/        api.yaml, llm.yaml, chat.yaml, retrieve.yaml, patient.yaml
+frontend/src/  app/, features/chat, documents, profile, layout/, core/
+prompts/       chat/system.md, user.md
+scripts/       (shell helpers)
+tests/         consult/, ingest/, parsers/, retrieval/, store/, fixtures/
+```
+
+---
+
+## MODULES
+
+| MODULE              | PATH                    | PURPOSE                          | AI_TASK        |
+|---------------------|-------------------------|----------------------------------|----------------|
+| api                 | src/api                 | HTTP layer and routers           | API_CHANGES    |
+| chat                | src/chat                | Agentic loop orchestration       | BUSINESS_LOGIC |
+| fsm                 | src/fsm                 | Generic saga execution core      | BUSINESS_LOGIC |
+| llm                 | src/llm                 | Vendor-neutral LLM clients       | INFRA          |
+| pipelines.consult    | src/pipelines/consult   | Consultation flow (LLM call)      | BUSINESS_LOGIC |
+| pipelines.ingest     | src/pipelines/ingest   | 10-step document ingestion       | BUSINESS_LOGIC |
+| pipelines.retrieval  | src/pipelines/retrieval | BM25+FTS retrieval flow          | BUSINESS_LOGIC |
+| services            | src/services            | App service layer                | BUSINESS_LOGIC |
+| store               | src/store               | Internal and knowledge storage   | INFRA          |
+| common              | src/common              | Shared utilities, parsers, logging| DEV_TOOLING    |
+| frontend            | frontend                | React 19 SPA with TanStack Query | FRONTEND       |
+| config              | config                  | YAML runtime settings             | CONFIG         |
+| prompts             | prompts                 | Prompt templates                 | CONFIG         |
+| tests               | tests                   | Automated test suite             | TESTS          |
+
+---
+
+## FLOWS
+
+| HTTP Request Flow              |              |                                  |                       | NOTES                    |
+| STEP | FROM                    | TO                       | PURPOSE                    |                          |
+|------|-------------------------|--------------------------|-----------------------------|--------------------------|
+| 1    | client                  | CORS middleware          | Set allowed origins         | src/api/app.py          |
+| 2    | CORS middleware         | RequestIDMiddleware      | Inject X-Request-ID header  | src/api/middleware.py   |
+| 3    | RequestIDMiddleware     | Router                   | Route to handler            | src/api/app.py          |
+| 4    | Router                  | SessionService/ChatService| Execute business logic      | src/api/routers/*.py    |
+| 5    | Service                 | KnowledgeStore/InternalStore| Read/write SQLite         | src/store/sql/*.py      |
+| 6    | Service                 | client                   | Return JSON response        | FastAPI automatic        |
 
 ---
 
 ## API_SURFACE
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/health` | Health check |
-| GET | `/api/v1/profile` | Patient profile |
-| GET | `/api/v1/sessions` | List sessions |
-| POST | `/api/v1/sessions` | Create session |
-| GET | `/api/v1/sessions/{session_id}` | Get session |
-| PATCH | `/api/v1/sessions/{session_id}` | Update session |
-| DELETE | `/api/v1/sessions/{session_id}` | Delete session |
-| POST | `/api/v1/sessions/{session_id}/messages` | Send chat message |
-| GET | `/api/v1/sessions/{session_id}/messages` | List messages |
-| POST | `/api/v1/documents` | Upload document |
-| GET | `/api/v1/documents` | List documents |
+| ROUTE_GROUP | PATH_PREFIX            | PURPOSE                        |
+|-------------|------------------------|--------------------------------|
+| health      | /health                | Health check                   |
+| profile     | /api/v1/profile        | Read-only patient profile      |
+| sessions    | /api/v1/sessions       | Session CRUD + messages        |
+| chat        | /api/v1/sessions/{id}/messages | Send/receive messages |
+| documents   | /api/v1/documents      | Document upload and listing    |
+
+*(All routes from src/api/routers/*.py. No global path prefix — each router defines its own prefix.)*
+
+---
+
+## API_CONSUMED
+
+| SERVICE      | BASE_URL_CONFIG_KEY | OPERATIONS            | MODULE       |
+|--------------|---------------------|-----------------------|--------------|
+| Ollama/NVIDIA| llm.base_url        | Completion, chat      | llm          |
+
+*(src/llm/openai_client.py. External LLM via OpenAI-compatible API. No other outbound integrations.)*
+
+---
+
+## FEATURE_MAP
+
+| FEATURE   | ROUTE                     | HANDLER          | SERVICE          | MODEL          |
+|-----------|---------------------------|------------------|------------------|----------------|
+| health    | GET /health               | health router    | -                | -              |
+| profile   | GET /api/v1/profile       | profile router   | ProfileService   | PatientInfo    |
+| sessions  | /api/v1/sessions          | sessions router  | SessionsService  | SessionRecord  |
+| chat      | POST /api/v1/sessions/{id}/messages | chat router | ChatService | MessageRecord  |
+| documents | /api/v1/documents         | documents router | IngestService    | Document       |
+
+---
+
+## DATA_ENTITIES
+
+| ENTITY          | PURPOSE                                    |
+|-----------------|--------------------------------------------|
+| SessionRecord   | Persistent chat consultation session       |
+| MessageRecord   | User/assistant message with metadata       |
+| Document        | Indexed markdown document metadata          |
+| Chunk           | Document text chunk with heading/section   |
+| SagaProgress    | Saga checkpoint (run_id, cursor, state)    |
+| PatientInfo     | Patient demographics from config/patient.yaml |
+| IngestData      | Ingest pipeline context (10 fields)        |
+| IngestInput     | Ingest pipeline input                      |
+
+*(From schema.sql, store/models.py, pipelines/ingest/models.py.)*
+
+---
+
+## KEY_FILES
+
+| FILE                       | PURPOSE                                   | RELATED_MODULES             |
+|----------------------------|-------------------------------------------|------------------------------|
+| pyproject.toml             | Backend deps, scripts, tooling config     | all                          |
+| frontend/package.json      | Frontend deps and scripts                 | frontend                     |
+| src/api/main.py            | Uvicorn entry point                       | api                          |
+| src/api/app.py             | FastAPI app factory with CORS/exception   | api, services                |
+| src/api/factory.py         | AppContext wiring (stores, LLM, services) | all services                 |
+| src/api/routers/*.py       | HTTP route handlers                       | services                     |
+| src/services/chat.py       | Agentic chat orchestration                | chat, llm, store             |
+| src/fsm/core.py            | Saga run context and step protocol        | pipelines                    |
+| src/fsm/saga_runner.py     | Saga orchestrator with checkpointing      | pipelines                    |
+| src/store/sql/schema.sql   | SQLite schema (documents, chunks, sessions, messages, saga_progress) | store, services |
+| config/llm.yaml            | LLM endpoint and retry config             | llm                          |
+| config/patient.yaml        | Patient demographics for consultation     | services/profile             |
+| config/api.yaml            | API layer config (timeouts, pagination)   | api                          |
+| prompts/chat/system.md     | System prompt template for LLM            | chat                         |
+| frontend/src/main.tsx      | React SPA entry point                     | frontend                     |
 
 ---
 
 ## CONVENTIONS
 
-- Python 3.13+ required.
-- Ruff line length is 100.
-- Mypy runs in strict mode.
-- Tests live under `tests/` and use pytest.
-- FastAPI app is module-level for Uvicorn import.
+| RULE                                | SOURCE                |
+|-------------------------------------|-----------------------|
+| Python 3.13+ required               | pyproject.toml        |
+| Ruff line-length = 100             | pyproject.toml        |
+| Mypy strict mode enabled            | pyproject.toml        |
+| Tests live under tests/ with pytest | pyproject.toml        |
+| FastAPI app is module-level variable| src/api/app.py        |
+| Config loaded from YAML files       | src/api/factory.py    |
+
+*(From pyproject.toml [tool.ruff], [tool.mypy]; confirmed from src/api/app.py.)*
+
+---
+
+<!-- Generated: 2026-06-11 -->
