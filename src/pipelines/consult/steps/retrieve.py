@@ -53,11 +53,13 @@ class Retrieve:
         retrieve_response = await self.retrieval_runner.run(retrieve_request)
         runCtx.data.query_chunks = retrieve_response.chunks
 
-        # Recency bundle: fetch recent documents and extract their first chunks
+        # Recency bundle: fetch recent documents within the same date window as query search
         recent_docs_all = await self.store.list_documents_by_date(
             limit=self.consult_config.recency.db_fetch_limit
         )
-        recent_docs = recent_docs_all[: self.consult_config.recency.max_docs]
+        recent_docs = [
+            doc for doc in recent_docs_all if doc.document_date >= from_date
+        ][: self.consult_config.recency.max_docs]
 
         for doc in recent_docs:
             chunks = await self.store.get_document_chunks(

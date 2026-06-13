@@ -69,6 +69,7 @@ class TestMetaScoreFactor:
         results = await store_with_chunks.search_chunks(
             "боль* OR живот* OR справа*",
             meta_score_factor=0.1,
+            include_meta_chunks=True,
             limit=10,
             limit_per_document=10,
         )
@@ -88,6 +89,7 @@ class TestMetaScoreFactor:
         results = await store_with_chunks.search_chunks(
             "боль* OR живот* OR справа*",
             meta_score_factor=0.1,
+            include_meta_chunks=True,
             limit=10,
             limit_per_document=10,
         )
@@ -100,6 +102,7 @@ class TestMetaScoreFactor:
         results = await store_with_chunks.search_chunks(
             "боль* OR живот* OR справа*",
             meta_score_factor=1.0,
+            include_meta_chunks=True,
             limit=10,
             limit_per_document=10,
         )
@@ -117,12 +120,14 @@ class TestMetaScoreFactor:
         results_penalized = await store_with_chunks.search_chunks(
             "боль* OR живот* OR справа*",
             meta_score_factor=0.1,
+            include_meta_chunks=True,
             limit=10,
             limit_per_document=10,
         )
         results_unpenalized = await store_with_chunks.search_chunks(
             "боль* OR живот* OR справа*",
             meta_score_factor=1.0,
+            include_meta_chunks=True,
             limit=10,
             limit_per_document=10,
         )

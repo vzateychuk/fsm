@@ -90,8 +90,8 @@ def test_max_total_chars_applied_after_truncation():
     assert total_chars <= config.bundle.max_total_chars
 
 
-def test_full_text_categories_no_truncation():
-    """full_text_categories are not truncated (full text preserved)."""
+def test_consultation_category_line_limit():
+    """Консультация uses category_line_limits from config (not full text)."""
     config = ConsultConfig.load("config/consult.yaml")
     builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
@@ -107,7 +107,7 @@ def test_full_text_categories_no_truncation():
     # Skip the source header (first 2 lines: header + blank)
     text_without_header = "\n".join(bundle_text.split("\n")[2:])
     lines = text_without_header.split("\n")
-    assert len(lines) == 100  # full_text_categories not truncated
+    assert len(lines) == config.excerpts.category_line_limits["Консультация"]
 
 
 def test_category_line_limits_applied():
@@ -235,19 +235,19 @@ def test_multiple_categories_mixed():
         make_chunk(f"c{i}", text=f"short {i}") for i in range(config.excerpts.top_chunks_count)
     ]
     query_chunks.extend([
-        make_chunk("c_consult", text=long_text, category="Консультация"),  # full text
-        make_chunk("c_analiz", text=long_text, category="Анализы"),  # 60 lines
-        make_chunk("c_unknown", text=long_text, category="Unknown"),  # 20 lines (default)
+        make_chunk("c_consult", text=long_text, category="Консультация"),
+        make_chunk("c_analiz", text=long_text, category="Анализы"),
+        make_chunk("c_unknown", text=long_text, category="Unknown"),
     ])
 
     result = builder.build(query_chunks, [])
 
     # Skip the source header (first 2 lines: header + blank)
     first_excerpt_text = "\n".join(result.kb_excerpts[0].split("\n")[2:])
-    assert len(first_excerpt_text.split("\n")) == 100  # Консультация - full text
+    assert len(first_excerpt_text.split("\n")) == config.excerpts.category_line_limits["Консультация"]
 
     second_excerpt_text = "\n".join(result.kb_excerpts[1].split("\n")[2:])
-    assert len(second_excerpt_text.split("\n")) == 60   # Анализы - 60 lines
+    assert len(second_excerpt_text.split("\n")) == config.excerpts.category_line_limits["Анализы"]
 
     third_excerpt_text = "\n".join(result.kb_excerpts[2].split("\n")[2:])
-    assert len(third_excerpt_text.split("\n")) == 20   # Unknown - 20 lines (default)
+    assert len(third_excerpt_text.split("\n")) == config.excerpts.max_lines_default

@@ -68,10 +68,15 @@ class BaselineRetriever:
         return response.chunks  # type: ignore[no-any-return]
 
     async def _fetch_recency_bundle(self) -> list[ChunkSearchResult]:
+        today = date.today()
+        from_date = (today - timedelta(days=self._retrieval_config.lookback_days)).isoformat()
+
         recent_docs_all = await self._store.list_documents_by_date(
             limit=self._recency_cfg.db_fetch_limit
         )
-        recent_docs = recent_docs_all[: self._recency_cfg.max_docs]
+        recent_docs = [
+            doc for doc in recent_docs_all if doc.document_date >= from_date
+        ][: self._recency_cfg.max_docs]
 
         recency_chunks: list[ChunkSearchResult] = []
         for doc in recent_docs:
