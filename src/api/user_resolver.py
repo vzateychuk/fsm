@@ -37,4 +37,6 @@ async def resolve_user_context(request: Request) -> UserContext:
     if account is None:
         raise UnauthorizedError("Account not found.")
 
-    return await shared.user_factory.get(account.username, account.db_path)
+    # Admin has empty db_path — use a sentinel path for schema init
+    db_path = account.db_path or f".data/db/{account.username}_admin.db"
+    return await shared.user_factory.get(account.username, db_path, role=account.role)

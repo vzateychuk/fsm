@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 
 from src.api.factory import create_shared_context
 from src.api.middleware import RequestIDFilter, RequestIDMiddleware
-from src.api.routers import auth, chat, documents, health, profile, sessions
+from src.api.routers import admin, auth, chat, documents, health, profile, sessions
 from src.services.errors import AppError
 
 logger = logging.getLogger(__name__)
@@ -84,6 +84,7 @@ def create_app() -> FastAPI:
 
     app.include_router(health.router)
     app.include_router(auth.router)
+    app.include_router(admin.router)
     app.include_router(sessions.router)
     app.include_router(chat.router)
     app.include_router(documents.router)

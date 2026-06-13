@@ -6,10 +6,10 @@ from fastapi import Depends, Request
 
 from src.api.config import ApiConfig
 from src.api.user_context import SharedContext, UserContext
-from src.api.user_resolver import resolve_user_context
+from src.api.user_resolver import auth_enabled, resolve_user_context
 from src.services.chat import ChatService
 from src.services.documents import DocumentsService
-from src.services.errors import ProfileIncompleteError
+from src.services.errors import ForbiddenError, ProfileIncompleteError
 from src.services.ingest import IngestService
 from src.services.profile import ProfileService
 from src.services.sessions import SessionsService
@@ -22,6 +22,17 @@ def get_shared_context(request: Request) -> SharedContext:
 async def get_user_context(
     user_ctx: UserContext = Depends(resolve_user_context),
 ) -> UserContext:
+    return user_ctx
+
+
+async def require_admin(
+    user_ctx: UserContext = Depends(get_user_context),
+) -> UserContext:
+    """Require admin role."""
+    if not auth_enabled():
+        raise ForbiddenError("Admin API requires AUTH_ENABLED=true")
+    if user_ctx.role != "admin":
+        raise ForbiddenError("Admin access required")
     return user_ctx
 
 

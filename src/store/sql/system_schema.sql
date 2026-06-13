@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS accounts (
     username TEXT PRIMARY KEY,
     password_hash TEXT NOT NULL,
+    role TEXT NOT NULL DEFAULT 'user',
     db_path TEXT NOT NULL,
     created_at TEXT NOT NULL
 );

@@ -94,6 +94,13 @@ class ProfileIncompleteError(AppError):
     http_status = 403
 
 
+class ForbiddenError(AppError):
+    """Insufficient permissions."""
+
+    code = "forbidden"
+    http_status = 403
+
+
 class ValidationError(AppError):
     """Input validation failed."""
 

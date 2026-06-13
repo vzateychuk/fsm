@@ -23,6 +23,7 @@ async def test_login_deletes_existing_sessions_before_create() -> None:
     system.get_account.return_value = AccountRecord(
         username="alice",
         password_hash=_ph.hash("password123"),
+        role="user",
         db_path=".data/db/alice.db",
         created_at="2026-01-01T00:00:00+00:00",
     )
