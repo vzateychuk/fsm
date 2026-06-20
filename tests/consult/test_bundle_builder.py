@@ -181,7 +181,7 @@ def test_top_chunks_truncated_to_lines():
 
 
 def test_provenance_format():
-    """Provenance entries follow format: source_path | document_date | category | section_path."""
+    """Provenance entries follow format: doc_id | source_path | section_path."""
     config = ConsultConfig.load("config/consult.yaml")
     builder = KBContextBundleBuilder(config.bundle, config.excerpts)
 
@@ -207,8 +207,9 @@ def test_provenance_format():
     # Provenance is now inline in each chunk text
     assert len(result.provenance) == 0  # Intentionally empty - sources are inline
 
-    # Check that file.md appears in the last kb_excerpt (the one with section path)
+    # Check that doc2 appears in the last kb_excerpt (the one with section path)
     last_excerpt = result.kb_excerpts[-1]
+    assert "doc2" in last_excerpt
     assert "file.md" in last_excerpt
     assert "section/subsection" in last_excerpt
 

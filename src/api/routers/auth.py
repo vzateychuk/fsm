@@ -6,8 +6,9 @@ from fastapi import APIRouter, Depends, Request, Response
 
 from src.api.cookies import SESSION_COOKIE_NAME, clear_session_cookie, set_session_cookie
 from src.api.deps import get_shared_context, get_user_context
+from src.api.user_context import UserContext
 from src.api.schemas import AuthMeResponse, LoginRequest, RegisterRequest
-from src.api.user_context import SharedContext, UserContext
+from src.api.user_context import SharedContext
 from src.services.auth import AuthService
 from src.services.profile import ProfileService
 
@@ -26,7 +27,7 @@ async def register(
 ) -> AuthMeResponse:
     result = await auth.register(body.username, body.password)
     set_session_cookie(response, result.session_id)
-    return AuthMeResponse(username=result.username, profile_complete=False, role="user")
+    return AuthMeResponse(username=result.username, profile_complete=False)
 
 
 @router.post("/login")
@@ -40,21 +41,11 @@ async def login(
     set_session_cookie(response, result.session_id)
     account = await auth.resolve_account(result.username)
     assert account is not None
-
-    # Admin has no user DB — skip profile check
-    if account.role == "admin":
-        return AuthMeResponse(
-            username=result.username,
-            profile_complete=True,
-            role="admin",
-        )
-
     user_ctx = await shared.user_factory.get(account.username, account.db_path)
     profile = await user_ctx.profile_service.get_profile()
     return AuthMeResponse(
         username=result.username,
         profile_complete=ProfileService.is_complete(profile),
-        role="user",
     )
 
 
@@ -74,16 +65,8 @@ async def logout(
 async def me(
     user_ctx: UserContext = Depends(get_user_context),
 ) -> AuthMeResponse:
-    # Admin has no user DB — skip profile check
-    if user_ctx.role == "admin":
-        return AuthMeResponse(
-            username=user_ctx.username,
-            profile_complete=True,
-            role="admin",
-        )
     profile = await user_ctx.profile_service.get_profile()
     return AuthMeResponse(
         username=user_ctx.username,
         profile_complete=ProfileService.is_complete(profile),
-        role="user",
     )

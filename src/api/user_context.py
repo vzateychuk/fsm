@@ -39,7 +39,6 @@ from src.services.sessions import SessionsService
 from src.store.sql.sql_store import SqlStore
 from src.store.sql.sqlite_internal_store import SqliteInternalStore
 from src.store.sql.sqlite_knowledge_store import SqliteKnowledgeStore
-
 logger = logging.getLogger(__name__)
 
 
@@ -48,7 +47,6 @@ class UserContext:
     """All services scoped to one user's database."""
 
     username: str
-    role: str  # 'admin' | 'user'
     db_path: str
     sessions_service: SessionsService
     profile_service: ProfileService
@@ -89,7 +87,7 @@ class UserContextFactory:
         self._cache: OrderedDict[tuple[str, str], UserContext] = OrderedDict()
         self._max_cache_size = max_cache_size
 
-    async def get(self, username: str, db_path: str, role: str = "user") -> UserContext:
+    async def get(self, username: str, db_path: str) -> UserContext:
         key = (username, db_path)
         if key in self._cache:
             self._cache.move_to_end(key)
@@ -100,14 +98,14 @@ class UserContextFactory:
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         await ensure_schema(db_path)
 
-        ctx = self._build(username, db_path, role)
+        ctx = self._build(username, db_path)
         self._cache[key] = ctx
         if len(self._cache) > self._max_cache_size:
             self._cache.popitem(last=False)
-        logger.debug("UserContext created username=%s db=%s role=%s", username, db_path, role)
+        logger.debug("UserContext created username=%s db=%s", username, db_path)
         return ctx
 
-    def _build(self, username: str, db_path: str, role: str = "user") -> UserContext:
+    def _build(self, username: str, db_path: str) -> UserContext:
         knowledge_store = SqliteKnowledgeStore(db_path=db_path)
         internal_store = SqliteInternalStore(db_path=db_path)
         saga_store = SqlStore(db_path=db_path)
@@ -178,7 +176,6 @@ class UserContextFactory:
 
         return UserContext(
             username=username,
-            role=role,
             db_path=db_path,
             sessions_service=sessions_service,
             profile_service=profile_service,

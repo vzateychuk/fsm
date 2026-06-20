@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 from src.api.config import ApiConfig
-from src.api.schema_init import ensure_system_schema
 from src.api.user_context import SharedContext, UserContext, UserContextFactory
+from src.api.schema_init import ensure_system_schema
 from src.api.user_db_paths import default_system_db_path, resolve_env_db_path, resolve_env_username
 from src.chat.config import ChatConfig
 from src.llm.config import LLMConfig
@@ -16,7 +17,7 @@ from src.llm.openai_client import OpenAICompatibleClient
 from src.llm.retry_client import RetryConfig, RetryLLMClient
 from src.pipelines.ingest.config import IngestConfig
 from src.pipelines.retrieval.config import RetrievalConfig
-from src.services.auth import AuthService, ensure_admin_user
+from src.services.auth import AuthService
 from src.store.sql.sqlite_system_store import SqliteSystemStore
 
 logger = logging.getLogger(__name__)
@@ -96,7 +97,6 @@ async def create_shared_context(
     system_db = default_system_db_path()
     await ensure_system_schema(system_db)
     system_store = SqliteSystemStore(db_path=system_db)
-    await ensure_admin_user(system_store)
     auth_service = AuthService(system_store, user_factory)
 
     logger.info("SharedContext initialized (system_db=%s)", system_db)

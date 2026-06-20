@@ -31,11 +31,4 @@ async def ensure_system_schema(db_path: str | None = None) -> None:
     ensure_db_parent(path)
     async with aiosqlite.connect(path) as conn:
         await conn.executescript(schema)
-        # Migration: add role column if missing (existing DBs)
-        cursor = await conn.execute("PRAGMA table_info(accounts)")
-        columns = {row[1] for row in await cursor.fetchall()}
-        if "role" not in columns:
-            await conn.execute("ALTER TABLE accounts ADD COLUMN role TEXT NOT NULL DEFAULT 'user'")
-            await conn.commit()
-            logger.info("Migrated accounts table: added role column")
     logger.info("System schema initialized: db=%s", path)

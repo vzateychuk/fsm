@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+
 # ---------------------------------------------------------------------------
 # Session DTOs
 # ---------------------------------------------------------------------------
@@ -109,26 +110,6 @@ class LoginRequest(BaseModel):
 class AuthMeResponse(BaseModel):
     username: str
     profile_complete: bool
-    role: str = "user"
-
-
-# ---------------------------------------------------------------------------
-# Admin DTOs
-# ---------------------------------------------------------------------------
-
-
-class AdminUserDTO(BaseModel):
-    username: str
-    role: str
-    created_at: str
-
-
-class ResetPasswordRequest(BaseModel):
-    new_password: str = Field(min_length=8)
-
-
-class SetRoleRequest(BaseModel):
-    role: str = Field(pattern=r"^(admin|user)$")
 
 
 # ---------------------------------------------------------------------------
