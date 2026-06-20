@@ -6,8 +6,10 @@
 .codemie
 .idea/
 .run/
-
-
+.mimocode/
+.codemie/
+.deepseek/
+.gemini/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
@@ -226,3 +228,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Docker deploy (local secrets and data)
+deploy/.env
+deploy/.data/
+deploy/config/llm.yaml
+deploy/docker-compose.override.yml

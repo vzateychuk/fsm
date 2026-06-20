@@ -196,6 +196,6 @@ class KBContextBundleBuilder:
 
     @staticmethod
     def _format_source_header(index: int, chunk: ChunkSearchResult) -> str:
-        """Format: [index] document_id#chunk_N | document_date | category | section_path"""
+        """Format: [index] source_path | document_date | category | section_path"""
         section = chunk.section_path or "(no section)"
-        return f"[{index}] {chunk.document_id}#chunk_{chunk.chunk_no} | {chunk.document_date} | {chunk.category} | {section}"
+        return f"[{index}] {chunk.source_path} | {chunk.document_date} | {chunk.category} | {section}"

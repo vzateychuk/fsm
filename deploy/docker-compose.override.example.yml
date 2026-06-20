@@ -1,0 +1,17 @@
+# Local development: build images from repo and reach Ollama on the host.
+# Copy to docker-compose.override.yml (gitignored).
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    image: adviser-api:local
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+    image: adviser-web:local

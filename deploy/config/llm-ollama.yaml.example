@@ -1,0 +1,15 @@
+# Ollama on the Docker host (requires extra_hosts in docker-compose.override.yml).
+base_url: "http://host.docker.internal:11434/v1"
+api_key: "sk-ollama-api-key"
+model: "gemma-4:31b-cloud"
+
+temperature: 0.1
+top_p: 0.9
+max_tokens: 4096
+timeout: 60.0
+
+retry_timeout_errors: true
+retry_timeout_max_attempts: 5
+retry_timeout_initial_delay: 3.0
+retry_timeout_max_delay: 60.0
+retry_timeout_backoff_factor: 2.0

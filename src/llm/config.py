@@ -76,7 +76,6 @@ class LLMConfig:
     """Maximum delay in seconds between timeout retries."""
     retry_timeout_backoff_factor: float = 2.0
     """Exponential backoff multiplier for timeout retries."""
-    num_ctx: int = 16384
     """Context window size for model."""
     stream: bool = False
     """Whether to stream the response."""
@@ -114,7 +113,6 @@ class LLMConfig:
             retry_timeout_initial_delay=data.get("retry_timeout_initial_delay", 1.0),
             retry_timeout_max_delay=data.get("retry_timeout_max_delay", 30.0),
             retry_timeout_backoff_factor=data.get("retry_timeout_backoff_factor", 2.0),
-            num_ctx=data.get("num_ctx", 16384),
             stream=data.get("stream", False),
             enable_thinking=data.get("enable_thinking", False),
             additional_request_kwargs=data.get("additional_request_kwargs", {}),

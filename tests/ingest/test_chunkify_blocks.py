@@ -18,6 +18,7 @@ ADMIN_HEADINGS: frozenset[str] = frozenset([
     "информация о пациенте",
     "сведения об обследовании",
     "аббревиатуры",
+    "пациент",
 ])
 
 
@@ -73,7 +74,7 @@ class TestIsAdminHeading:
 
 class TestChunkifyBlocksMetaKind:
     async def test_admin_heading_produces_meta_kind(self) -> None:
-        step = ChunkifyBlocks(admin_headings=ADMIN_HEADINGS)
+        step = ChunkifyBlocks(max_section_chars=4000, admin_headings=ADMIN_HEADINGS)
         token = MdToken(type="paragraph", content="Возраст: 35 лет. Пол: женский.", level=0)
         events: list[BlockEvent] = [
             {
@@ -90,7 +91,7 @@ class TestChunkifyBlocksMetaKind:
         assert ctx.data.chunks[0]["kind"] == "meta"
 
     async def test_clinical_heading_keeps_section_kind(self) -> None:
-        step = ChunkifyBlocks(admin_headings=ADMIN_HEADINGS)
+        step = ChunkifyBlocks(max_section_chars=4000, admin_headings=ADMIN_HEADINGS)
         token = MdToken(type="paragraph", content="Боль в животе справа, острая.", level=0)
         events: list[BlockEvent] = [
             {
@@ -107,7 +108,7 @@ class TestChunkifyBlocksMetaKind:
         assert ctx.data.chunks[0]["kind"] == "section"
 
     async def test_list_token_in_admin_section_gets_meta(self) -> None:
-        step = ChunkifyBlocks(admin_headings=ADMIN_HEADINGS)
+        step = ChunkifyBlocks(max_section_chars=4000, admin_headings=ADMIN_HEADINGS)
         token = MdToken(type="list", content="- Сокращение 1\n- Сокращение 2", level=0)
         events: list[BlockEvent] = [
             {
@@ -122,8 +123,24 @@ class TestChunkifyBlocksMetaKind:
 
         assert ctx.data.chunks[0]["kind"] == "meta"
 
+    async def test_short_patient_heading_gets_meta(self) -> None:
+        step = ChunkifyBlocks(max_section_chars=4000, admin_headings=ADMIN_HEADINGS)
+        token = MdToken(type="list", content="- **Пациент:** Ivanov", level=0)
+        events: list[BlockEvent] = [
+            {
+                "token": token,
+                "section_path": "orthopedist consultation > пациент",
+                "heading": "пациент",
+            }
+        ]
+        ctx = _make_ctx(events)
+
+        await step.run(ctx)
+
+        assert ctx.data.chunks[0]["kind"] == "meta"
+
     async def test_empty_admin_headings_leaves_kind_unchanged(self) -> None:
-        step = ChunkifyBlocks(admin_headings=frozenset())
+        step = ChunkifyBlocks(max_section_chars=4000, admin_headings=frozenset())
         token = MdToken(type="paragraph", content="Возраст: 35 лет.", level=0)
         events: list[BlockEvent] = [
             {
@@ -140,7 +157,7 @@ class TestChunkifyBlocksMetaKind:
 
     async def test_mixed_events_correct_kinds(self) -> None:
         """Clinical and admin sections in the same document — each gets correct kind."""
-        step = ChunkifyBlocks(admin_headings=ADMIN_HEADINGS)
+        step = ChunkifyBlocks(max_section_chars=4000, admin_headings=ADMIN_HEADINGS)
         clinical_token = MdToken(type="paragraph", content="Острая боль в правом подреберье.", level=0)
         admin_token = MdToken(type="paragraph", content="Возраст: 42. Пол: мужской.", level=0)
         events: list[BlockEvent] = [

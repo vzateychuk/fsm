@@ -23,8 +23,8 @@ find "$INGEST_DIR" -name "*.md" | while read -r file; do
     exit 1
   fi
 
-  # Запускаем скрипт с путём к файлу
-  python "$PYTHON_SCRIPT" "$file"
+  # Запускаем скрипт с путём к файлу (uv — зависимости из pyproject.toml)
+  uv run python "$PYTHON_SCRIPT" "$file"
 
   # Проверяем код возврата
   if [ $? -ne 0 ]; then

@@ -7,7 +7,6 @@ model: "minimaxai/minimax-m2.7"
 temperature: 0.1                            # Sampling temperature
 top_p: 0.9                                  # Top-p (nucleus) sampling parameter
 max_tokens: 8192                              # Maximum number of tokens to generate
-num_ctx: 16384                                # Context window size for model
 timeout: 180.0                             # Request timeout in seconds
 
 # Retry configuration for timeout errors (separate from max_retries)

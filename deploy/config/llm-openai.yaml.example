@@ -1,0 +1,15 @@
+base_url: "https://api.openai.com/v1"
+api_key: ${OPENAI_API_KEY}
+model: "gpt-4o-mini"
+
+temperature: 0.1
+top_p: 0.9
+max_tokens: 8192
+num_ctx: 16384
+timeout: 180.0
+
+retry_timeout_errors: true
+retry_timeout_max_attempts: 5
+retry_timeout_initial_delay: 10.0
+retry_timeout_max_delay: 60.0
+retry_timeout_backoff_factor: 2.0

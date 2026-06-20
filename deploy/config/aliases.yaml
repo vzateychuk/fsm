@@ -1,0 +1,119 @@
+# Medical terminology aliases and linguistic filters
+# Used by both ingest (tagging) and retrieval (ExpandAliases) pipelines
+
+# Alias mappings: term -> list of synonyms/aliases
+# Both directions should be defined (e.g., фгдс -> эгдс AND эгдс -> фгдс)
+aliases:
+  # Эндоскопия
+  фгдс: ["эгдс"]
+  эгдс: ["фгдс"]
+
+  # Кардиология
+  экг: ["электрокардиография"]
+  эхокг: ["эхокардиография"]
+
+  # Биохимия / Липиды
+  лпнп: ["ldl"]
+  лпвп: ["hdl"]
+  ldl: ["лпнп"]
+  hdl: ["лпвп"]
+
+  # Гормоны
+  ттг: ["tsh"]
+  птг: ["pth"]
+  tsh: ["ттг"]
+  pth: ["птг"]
+
+  # Онко-маркеры
+  psa: ["пса"]
+  пса: ["psa"]
+
+# Stopwords: tokens to skip during tagging/indexing
+# Russian prepositions, conjunctions, English articles/prepositions
+stopwords:
+  # Russian prepositions/conjunctions (normalized: lower, ё->е)
+  - для
+  - при
+  - или
+  - что
+  - это
+  - как
+  - его
+  - ее
+  - из
+  - по
+  - на
+  - от
+  - до
+  - за
+  - без
+  - под
+  - над
+  - про
+  - через
+  - между
+  - около
+  - вдоль
+  - после
+  # English articles and prepositions
+  - the
+  - and
+  - for
+  - with
+  - not
+  - are
+  - was
+  - were
+
+# Measurement units: exact matches
+units_exact:
+  # Mass (масса)
+  - кг
+  - г
+  - мг
+  - мкг
+  - нг
+  # Volume (объём)
+  - л
+  - мл
+  # Length (длина)
+  - мм
+  - см
+  - м
+  - рт.ст
+  # Time (время)
+  - мс
+  - мсек
+  - сек
+  - мин
+  - ч
+  # Other (прочие)
+  - "%"
+  - уд/мин
+  # Lab units (лаб. единицы)
+  - ммоль/л
+  - мкмоль/л
+  - нг/мл
+  - пг/мл
+  - ед/л
+  - ме/мл
+  - мме/мл
+  - мкме/мл
+  # English and combinations
+  - mg
+  - ml
+  - kg
+  - cm
+  - mm
+  - mg/ml
+  - ml/kg
+  - ng/ml
+  - pg/ml
+
+# Measurement units: regex patterns
+# Patterns for complex units like "мкме/мл", "мкмоль/л", "(пг|нг|мг|мкг)/мл", "ед/л"
+units_regex:
+  - "^(мк)?ме/мл$"
+  - "^(мк)?моль/л$"
+  - "^(пг|нг|мг|мкг)/мл$"
+  - "^ед/л$"

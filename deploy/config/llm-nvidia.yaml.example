@@ -1,0 +1,14 @@
+base_url: "https://integrate.api.nvidia.com/v1"
+api_key: ${NVIDIA_API_KEY}
+model: "minimaxai/minimax-m3"
+
+temperature: 0.1
+top_p: 0.9
+max_tokens: 4096
+timeout: 180.0
+
+retry_timeout_errors: true
+retry_timeout_max_attempts: 5
+retry_timeout_initial_delay: 10.0
+retry_timeout_max_delay: 60.0
+retry_timeout_backoff_factor: 2.0

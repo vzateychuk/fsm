@@ -1,0 +1,24 @@
+agentic_loop:
+  max_kb_roundtrips: 3          # сколько tool calls LLM может запросить в одном ответе
+  max_tool_calls_per_turn: 5    # сколько циклов LLM→tools→LLM разрешено за один пациентский turn.
+  max_search_chunks: 10         # лимит чанков возвращаемых kb.search_chunks
+  max_search_chars: 4000        # лимит символов возвращаемых kb.search_chunks
+  max_get_document_chars: 16000 # лимит символов возвращаемых kb.get_document
+
+recency:
+  max_docs: 3
+  db_fetch_limit: 5
+  chunks_per_doc: 2
+
+bundle:
+  max_total_chunks: 20
+  max_total_chars: 12000
+
+excerpts:
+  top_chunks_count: 5
+  top_chunks_lines: 30
+  max_lines_default: 50
+
+memory:
+  window_turns: 6               # last N user turns kept in LLM context
+  summarize_after_turns: 6       # trigger rolling summary compression every N turns

@@ -1,0 +1,4 @@
+consult_request_timeout_seconds: 300
+upload_max_size_mb: 10
+pagination_default_limit: 100
+pagination_max_limit: 500

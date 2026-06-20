@@ -7,7 +7,6 @@ model: "gemma-4:31b-cloud"                    # Model identifier
 temperature: 0.1                            # Sampling temperature
 top_p: 0.9                                  # Top-p (nucleus) sampling parameter
 max_tokens: 4096                              # Maximum number of tokens to generate
-num_ctx: 196384                                # Context window size for model
 timeout: 60.0                             # Request timeout in seconds
 
 
